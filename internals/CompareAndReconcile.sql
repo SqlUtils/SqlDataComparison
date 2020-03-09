@@ -2,7 +2,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [internals].[DataCompare]
+CREATE PROCEDURE [internals].[CompareAndReconcile]
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@import_added_rows int = null,
@@ -176,11 +176,19 @@ BEGIN
 		@i = @i + 1
 	FROM #key_columns
 
+	DECLARE @lower NVARCHAR(MAX)
+	DECLARE @Upper NVARCHAR(MAX)
+
 	/*
 	 * THEIRS TO OURS AND OURS TO THEIRS
 	 */
 	IF @import_added_rows <> 0
 	BEGIN
+		IF @import_added_rows > 0 SELECT @lower = 'import', @Upper = 'Import'
+		ELSE SELECT @lower = 'export', @Upper = 'Export'
+
+		RAISERROR('%sing added rows...', 0, 1, @Upper)
+
 		DECLARE @has_identity BIT = 0
 
 		SET @params =
@@ -255,7 +263,7 @@ BEGIN
 		SET NOCOUNT ON;
 
 		IF @error = 0
-			RAISERROR('Requested import completed with no errors. Transferred %d rows from %s into %s.', 0, 1, @rowcount, @from, @to)
+			RAISERROR('Requested %s completed with no errors. Transferred %d rows from %s into %s.', 0, 1, @lower, @rowcount, @from, @to)
 	END
 
 	/*
@@ -301,7 +309,7 @@ BEGIN
 	EXEC (@sql)
 
 	IF @@ROWCOUNT > 0
-		RAISERROR('Data differences found between OURS >>> %s and THEIRS >>> %s.%sSwitch to results window to view differences.%s - Call again with @import_theirs_to_ours or @import_ours_to_theirs set to transfer changes.%s - Differences in rows which are in both need to be resolved by hand.', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
+		RAISERROR('Data differences found between OURS >>> %s and THEIRS >>> %s.%s - Switch to results window to view differences.%s - Call [Import|Export][AddedRows|DeletedRows|ChangedRows|All] (e.g. ImportAddedRows) with the same arguments to transfer changes.%s', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
 	ELSE
 		RAISERROR('No data differences found between OURS >>> %s and THEIRS >>> %s.', 0, 1, @local_full_table_name, @remote_full_table_name)
 
