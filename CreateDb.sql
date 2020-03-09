@@ -1,7 +1,15 @@
 USE master
-IF EXISTS(select * from sys.databases where name='SqlUtils')
-DROP DATABASE SqlUtils
+GO
 
-CREATE DATABASE SqlUtils;
+IF EXISTS(select * from sys.databases where name='SqlUtils')
+BEGIN
+    ALTER DATABASE SqlUtils SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+    DROP DATABASE SqlUtils
+END
+GO
+
+CREATE DATABASE SqlUtils
+GO
 
 USE SqlUtils
+GO
