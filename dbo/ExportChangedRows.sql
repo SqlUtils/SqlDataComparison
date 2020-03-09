@@ -7,7 +7,7 @@ CREATE PROCEDURE [dbo].[ExportChangedRows]
 	@their_table_name sysname,
 	@use_columns nvarchar(max) = null,
 	@join_columns nvarchar(max) = null,
-	@rename_columns nvarchar(max) = null
+	@map_columns nvarchar(max) = null
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -17,7 +17,7 @@ BEGIN
 		@their_table_name = @their_table_name,
 		@use_columns = @use_columns,
 		@join_columns = @join_columns,
-		@rename_columns = @rename_columns,
+		@map_columns = @map_columns,
 		@import = -1,
 		@changed_rows = 1
 END

@@ -7,7 +7,7 @@ CREATE PROCEDURE [internals].[CompareAndReconcile]
 	@their_table_name sysname,
 	@use_columns nvarchar(max) = null,
 	@join_columns nvarchar(max) = null,
-	@rename_columns nvarchar(max) = null,
+	@map_columns nvarchar(max) = null,
 	@import int = null, -- > 0 means import; < 0 means export
 	@added_rows bit = null,
 	@deleted_rows bit = null,
