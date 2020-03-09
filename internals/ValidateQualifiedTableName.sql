@@ -2,7 +2,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [internals].[ParseQualifiedTableName]
+CREATE PROCEDURE [internals].[ValidateQualifiedTableName]
 	@qualified_table_name sysname,
 	@server sysname OUTPUT,
 	@database sysname OUTPUT,
@@ -22,13 +22,13 @@ BEGIN
 
 	IF @table IS NULL
 	BEGIN
-		RAISERROR('Invalid table name in parameter %s=''%s''', 16, 1, @param_name, @qualified_table_name)
+		RAISERROR('Invalid or missing table name in parameter %s=''%s''', 16, 1, @param_name, @qualified_table_name)
 		GOTO completed
 	END
 
 	IF @database IS NULL
 	BEGIN
-		RAISERROR('Invalid database name in parameter %s=''%s''', 16, 1, @param_name, @qualified_table_name)
+		RAISERROR('Invalid or missing database name in parameter %s=''%s''', 16, 1, @param_name, @qualified_table_name)
 		GOTO completed
 	END
 

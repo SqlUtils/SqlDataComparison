@@ -37,7 +37,7 @@ BEGIN
 	DECLARE @local_database_part sysname
 	DECLARE @local_full_table_name sysname
 
-	EXEC internals.ParseQualifiedTableName
+	EXEC internals.ValidateQualifiedTableName
 		@qualified_table_name = @our_table_name,
 		@server = @our_server OUTPUT,
 		@database = @our_database OUTPUT,
@@ -59,7 +59,7 @@ BEGIN
 	DECLARE @remote_database_part sysname
 	DECLARE @remote_full_table_name sysname
 
-	EXEC internals.ParseQualifiedTableName
+	EXEC internals.ValidateQualifiedTableName
 		@qualified_table_name = @their_table_name,
 		@server = @their_server OUTPUT,
 		@database = @their_database OUTPUT,
