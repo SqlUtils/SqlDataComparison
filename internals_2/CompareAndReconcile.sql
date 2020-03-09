@@ -23,6 +23,8 @@ BEGIN
 	DECLARE @params NVARCHAR(MAX)
 	DECLARE @sql NVARCHAR(MAX)
 
+	DECLARE @msg NVARCHAR(MAX)
+
 	-- return values
 	DECLARE @error INT
 	DECLARE @rowcount INT
@@ -150,25 +152,39 @@ BEGIN
 
 		IF @error <> 0
 		BEGIN
-			RAISERROR('Illegal column names specified in @use_columns; quote names with [...] if necessary', 16, 1)
+			RAISERROR('*** Illegal or missing column names found in @use_columns ''%s'' (quote column names using [...] if necessary)', 16, 1, @use_columns)
 			GOTO complete
 		END
 
 		DECLARE @illegal_columns NVARCHAR(MAX)
 
-		-- gather illegal column names (if any) into a single string
-		SET @illegal_columns = STUFF(
+		-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
+		SET @rowcount = 0;
+		WITH IllegalColumns_CTE (name)
+		AS
 		(
-			SELECT ', ''' + uc.name + ''''
+			SELECT uc.name
 			FROM #use_columns uc
 			LEFT OUTER JOIN #columns c
-			ON uc.name = c.name WHERE c.name IS NULL
-			FOR XML PATH('')
-		), 1, 2, '')
-		
+			ON uc.name = c.name
+			WHERE c.name IS NULL
+		)
+		SELECT
+			@illegal_columns = STUFF(
+			(
+				SELECT ', ''' + name + ''''
+				FROM IllegalColumns_CTE
+				FOR XML PATH('')
+			), 1, 2, ''),
+			@rowcount = (SELECT COUNT(*) FROM IllegalColumns_CTE)
+
 		IF @illegal_columns <> ''
 		BEGIN
-			RAISERROR('Column names %s specified in @use_columns do not exist in %s', 16, 1, @illegal_columns, @local_full_table_name)
+			IF @rowcount = 1
+				SET @msg = 'Column name %s specified in @use_columns does not exist in %s'
+			ELSE
+				SET @msg = 'Column names %s specified in @use_columns do not exist in %s'
+			RAISERROR(@msg, 16, 1, @illegal_columns, @local_full_table_name)
 			GOTO complete
 		END
 
