@@ -12,6 +12,7 @@ BEGIN
 	EXEC internals.CompareAndReconcile
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
-		@import_deleted_rows = -1
+		@import = -1,
+		@deleted_rows = 1
 END
 GO

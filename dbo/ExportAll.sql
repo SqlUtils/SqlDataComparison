@@ -12,8 +12,9 @@ BEGIN
 	EXEC internals.CompareAndReconcile
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
-		@import_added_rows = -1,
-		@import_deleted_rows = -1,
-		@import_changed_rows = -1
+		@import = -1,
+		@added_rows = 1,
+		@deleted_rows = 1,
+		@changed_rows = 1
 END
 GO

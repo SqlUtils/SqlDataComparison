@@ -5,9 +5,10 @@ GO
 CREATE PROCEDURE [internals].[CompareAndReconcile]
 	@our_table_name sysname,
 	@their_table_name sysname,
-	@import_added_rows int = null,
-	@import_deleted_rows int = null,
-	@import_changed_rows int = null
+	@import int = null, -- > 0 means import; < 0 means export
+	@added_rows bit = null,
+	@deleted_rows bit = null,
+	@changed_rows bit = null
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -168,7 +169,7 @@ BEGIN
 	DECLARE @JOIN NVARCHAR(MAX)
 
 	SELECT @JOIN = 'FROM ' + @local_full_table_name + ' [ours]' + @CRLF
-	SELECT @JOIN = @JOIN + 'FULL OUTER JOIN ' + @remote_full_table_name + ' [theirs]' + @CRLF
+	SELECT @JOIN = @JOIN + '%0 JOIN ' + @remote_full_table_name + ' [theirs]' + @CRLF
 
 	SET @i = 0
 	SELECT
@@ -182,92 +183,192 @@ BEGIN
 	/*
 	 * THEIRS TO OURS AND OURS TO THEIRS
 	 */
-	IF @import_added_rows <> 0
+	IF @import <> 0
 	BEGIN
-		IF @import_added_rows > 0 SELECT @lower = 'import', @Upper = 'Import'
+		IF @import > 0 SELECT @lower = 'import', @Upper = 'Import'
 		ELSE SELECT @lower = 'export', @Upper = 'Export'
 
-		RAISERROR('%sing added rows...', 0, 1, @Upper)
-
+		-- determine whether there is an identity column (must check this on the target side side of the data transfer)
 		DECLARE @has_identity BIT = 0
 
-		SET @params =
-			'@schema sysname,' + @CRLF +
-			'@table sysname,' + @CRLF +
-			'@has_identity sysname output'
-		SET @sql =
-			'SELECT @has_identity = 1' + @CRLF +
-			'FROM %0.sys.identity_columns ic' + @CRLF +
-			'INNER JOIN %0.sys.objects o' + @CRLF +
-			'ON ic.object_id = o.object_id' + @CRLF +
-			'INNER JOIN %0.sys.schemas s' + @CRLF +
-			'ON o.schema_id = s.schema_id' + @CRLF +
-			'AND s.name = @schema' + @CRLF +
-			'WHERE o.name = @table' + @CRLF
+		-- there can only be one
+		CREATE TABLE #identity_columns
+		(
+			column_id int,
+			name sysname
+		)
 
-		DECLARE @to_schema sysname = CASE WHEN @import_added_rows > 0 THEN @our_schema ELSE @their_schema END
-		DECLARE @to_table sysname = CASE WHEN @import_added_rows > 0 THEN @our_table ELSE @their_table END
+		-- only need to work with identity columns for add and change, not deletes
+		IF @added_rows = 1 OR @changed_rows = 1
+		BEGIN
+			SET @params =
+				'@schema sysname,' + @CRLF +
+				'@table sysname'
+			SET @sql =
+				'SELECT c.column_id, c.name' + @CRLF +
+				'FROM %0.sys.schemas s' + @CRLF +
+				'INNER JOIN %0.sys.objects o' + @CRLF +
+				'ON o.schema_id = s.schema_id' + @CRLF +
+				'INNER JOIN %0.sys.columns c' + @CRLF +
+				'ON c.object_id = o.object_id' + @CRLF +
+				'INNER JOIN %0.sys.identity_columns ic' + @CRLF +
+				'ON ic.object_id = o.object_id' + @CRLF +
+				'AND ic.column_id = c.column_id' + @CRLF +
+				'WHERE s.name = @schema' + @CRLF +
+				'AND o.name = @table'
 
-		SET @sql = REPLACE(@sql, '%0', CASE WHEN @import_added_rows > 0 THEN @local_database_part ELSE @remote_database_part END)
+			DECLARE @target_schema sysname = CASE WHEN @import > 0 THEN @our_schema ELSE @their_schema END
+			DECLARE @target_table sysname = CASE WHEN @import > 0 THEN @our_table ELSE @their_table END
 
-		EXEC sp_executesql @sql, @params, @to_schema, @to_table, @has_identity OUTPUT
-		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+			SET @sql = REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_database_part ELSE @remote_database_part END)
 
-		IF @error <> 0 GOTO complete
+			INSERT INTO #identity_columns (column_id, name)
+			EXEC sp_executesql @sql, @params, @target_schema, @target_table
+			SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
-		SET @sql = CASE WHEN @has_identity = 1 THEN 'SET IDENTITY_INSERT %0 ON;' + @CRLF + @CRLF ELSE '' END
+			IF @error <> 0 GOTO complete
 
-		SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
+			IF @rowcount > 0 SET @has_identity = 1
+		END
 
-		SELECT @sql = @sql + @TAB + '[' + #columns.name + '],' + @CRLF
-		FROM #columns
+		DECLARE @from sysname = CASE WHEN @import > 0 THEN '[theirs]' ELSE '[ours]' END
+		DECLARE @to sysname = CASE WHEN @import > 0 THEN '[ours]' ELSE '[theirs]' END
 
-		SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
+		/*
+		 * ADDED ROWS
+		 */
+		IF @added_rows = 1
+		BEGIN
+			RAISERROR('%s%sing added rows...', 0, 1, @CRLF, @Upper)
 
-		SELECT @sql = @sql + ')' + @CRLF
+			SET @sql = CASE WHEN @has_identity = 1 THEN 'SET IDENTITY_INSERT %0 ON;' + @CRLF + @CRLF ELSE '' END
 
-		SELECT @sql = @sql + 'SELECT' + @CRLF
+			SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
 
-		SELECT @sql = @sql + @TAB + '%1.[' + #columns.name + '],' + @CRLF
-		FROM #columns
+			SELECT @sql = @sql + @TAB + '[' + #columns.name + '],' + @CRLF
+			FROM #columns
 
-		SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
+			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-		SELECT @sql = @sql + @JOIN
+			SELECT @sql = @sql + ')' + @CRLF
 
-		SET @i = 0
-		SELECT
-			@sql = @sql +
-				CASE WHEN @i = 0 THEN 'WHERE ' ELSE '  AND ' END +
-				'%2.[' + #key_columns.name + '] IS NULL' + @CRLF,
-			@i = @i + 1
-		FROM #key_columns
+			SELECT @sql = @sql + 'SELECT' + @CRLF
 
-		-- don't explicitly turn off IDENTITY_INSERT as it loses the rowcount and is
-		-- turned off automatically when we leave the scope of the EXEC()
+			SELECT @sql = @sql + @TAB + '%2.[' + #columns.name + '],' + @CRLF
+			FROM #columns
 
-		--PRINT @sql+@CRLF
+			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-		DECLARE @from sysname = CASE WHEN @import_added_rows > 0 THEN '[theirs]' ELSE '[ours]' END
-		DECLARE @to sysname = CASE WHEN @import_added_rows > 0 THEN '[ours]' ELSE '[theirs]' END
+			SELECT @sql = @sql + REPLACE(@JOIN, '%0', 'FULL OUTER')
 
-		DECLARE @IMPORT_SQL NVARCHAR(MAX)
+			SET @i = 0
+			SELECT
+				@sql = @sql +
+					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '  AND ' END +
+					'%1.[' + #key_columns.name + '] IS NULL' + @CRLF,
+				@i = @i + 1
+			FROM #key_columns
 
-		SET @IMPORT_SQL = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import_added_rows > 0 THEN @local_full_table_name ELSE @remote_full_table_name END), '%1', @from), '%2', @to);
+			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
-		--PRINT @IMPORT_SQL+@CRLF
+			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_full_table_name ELSE @remote_full_table_name END), '%1', @to), '%2', @from);
 
-		SET NOCOUNT OFF;
-		EXEC (@IMPORT_SQL)
-		SELECT @error = @@ERROR, @rowcount = @@ROWCOUNT
-		SET NOCOUNT ON;
+			--PRINT @sql + @CRLF
 
-		IF @error = 0
-			RAISERROR('Requested %s completed with no errors. Transferred %d rows from %s into %s.', 0, 1, @lower, @rowcount, @from, @to)
+			SET NOCOUNT OFF;
+			EXEC (@sql)
+			SELECT @error = @@ERROR, @rowcount = @@ROWCOUNT
+			SET NOCOUNT ON;
+
+			IF @error = 0
+				RAISERROR('Requested %s completed with no errors. Transferred %d rows from %s into %s.', 0, 1, @lower, @rowcount, @from, @to)
+		END
+
+		/*
+		 * DELETED ROWS
+		 */
+		IF @deleted_rows = 1
+		BEGIN
+			RAISERROR('%s%sing deleted rows...', 0, 1, @CRLF, @Upper)
+
+			SET @sql = 'DELETE %1' + @CRLF
+
+			SELECT @sql = @sql + REPLACE(@JOIN, '%0', 'FULL OUTER')
+
+			SET @i = 0
+			SELECT
+				@sql = @sql +
+					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
+					'%1.[' + #key_columns.name + '] IS NOT NULL AND %2.[' + #key_columns.name + '] IS NULL' + @CRLF,
+				@i = @i + 1
+			FROM #key_columns
+
+			SET @sql = REPLACE(REPLACE(@sql, '%1', @to), '%2', @from);
+
+			--PRINT @sql + @CRLF
+
+			SET NOCOUNT OFF;
+			EXEC (@sql)
+			SELECT @error = @@ERROR, @rowcount = @@ROWCOUNT
+			SET NOCOUNT ON;
+
+			IF @error = 0
+				RAISERROR('Requested %s completed with no errors. Deleted %d rows from %s.', 0, 1, @lower, @rowcount, @to)
+		END
+
+		/*
+		 * CHANGED ROWS
+		 */
+		IF @deleted_rows = 1
+		BEGIN
+			RAISERROR('%s%sing changed rows...', 0, 1, @CRLF, @Upper)
+
+			SET @sql = 'UPDATE %1' + @CRLF
+
+			SET @i = 0
+			SELECT
+				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + #columns.name + '] = %2.[' + #columns.name + '],' + @CRLF,
+				@i = @i + 1
+			FROM #columns
+			LEFT OUTER JOIN #identity_columns
+			ON #columns.column_id = #identity_columns.column_id
+			WHERE #identity_columns.column_id IS NULL
+
+			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
+
+			SELECT @sql = @sql + REPLACE(@JOIN, '%0', 'INNER')
+
+			SET @i = 0
+			SELECT
+				@sql = @sql +
+					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
+					'[ours].[' + #columns.name + '] IS NULL AND [theirs].[' + #columns.name + '] IS NOT NULL' + @CRLF +
+					'   OR [ours].[' + #columns.name + '] IS NOT NULL AND [theirs].[' + #columns.name + '] IS NULL' + @CRLF +
+					'   OR [ours].[' + #columns.name + '] <> [theirs].[' + #columns.name + ']' + @CRLF,
+				@i = @i + 1
+			FROM #columns
+			LEFT OUTER JOIN #key_columns
+			ON #columns.column_id = #key_columns.column_id
+			WHERE #key_columns.column_id IS NULL
+
+			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
+
+			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_full_table_name ELSE @remote_full_table_name END), '%1', @to), '%2', @from);
+
+			--PRINT @sql + @CRLF
+
+			SET NOCOUNT OFF;
+			EXEC (@sql)
+			SELECT @error = @@ERROR, @rowcount = @@ROWCOUNT
+			SET NOCOUNT ON;
+
+			IF @error = 0
+				RAISERROR('Requested %s completed with no errors. Updated %d rows in %s with data from %s.', 0, 1, @lower, @rowcount, @to, @from)
+		END
 	END
 
 	/*
-	 * DISPLAY THE DATA DIFFERENCES
+	 * DATA COMPARE
 	 */
 
 	SET @sql = 'SELECT '
@@ -282,7 +383,7 @@ BEGIN
 
 	SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-	SELECT @sql = @sql + @JOIN
+	SELECT @sql = @sql + REPLACE(@JOIN, '%0', 'FULL OUTER')
 
 	SET @i = 0
 	SELECT
@@ -297,8 +398,7 @@ BEGIN
 		@sql = @sql +
 			'   OR [ours].[' + #columns.name + '] IS NULL AND [theirs].[' + #columns.name + '] IS NOT NULL' + @CRLF +
 			'   OR [ours].[' + #columns.name + '] IS NOT NULL AND [theirs].[' + #columns.name + '] IS NULL' + @CRLF +
-			'   OR [ours].[' + #columns.name + '] <> [theirs].[' + #columns.name + ']' + @CRLF,
-		@i = @i + 1
+			'   OR [ours].[' + #columns.name + '] <> [theirs].[' + #columns.name + ']' + @CRLF
 	FROM #columns
 	LEFT OUTER JOIN #key_columns
 	ON #columns.column_id = #key_columns.column_id
@@ -311,7 +411,7 @@ BEGIN
 	IF @@ROWCOUNT > 0
 		RAISERROR('Data differences found between OURS >>> %s and THEIRS >>> %s.%s - Switch to results window to view differences.%s - Call [Import|Export][AddedRows|DeletedRows|ChangedRows|All] (e.g. ImportAddedRows) with the same arguments to transfer changes.%s', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
 	ELSE
-		RAISERROR('No data differences found between OURS >>> %s and THEIRS >>> %s.', 0, 1, @local_full_table_name, @remote_full_table_name)
+		RAISERROR('%sNo data differences found between OURS >>> %s and THEIRS >>> %s.', 0, 1, @CRLF, @local_full_table_name, @remote_full_table_name)
 
 complete:
 END
