@@ -3,7 +3,7 @@
   <Target Name="ConcatenateScripts">
     <!-- List all the files you want to concatenate. -->
     <ItemGroup>
-      <ConcatFiles Include="CreateSqlUtilsDb.sql;internals\ParseQualifiedTableName.sql;internals\CompareAndReconcile.sql;dbo\*.sql"/>
+      <ConcatFiles Include="CreateSqlUtilsDb.sql;internals_1\*.sql;internals_2\*.sql;dbo\*.sql"/>
     </ItemGroup>
 
     <!-- Read the contents of the files (preserving tabs/spaces). -->

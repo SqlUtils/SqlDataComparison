@@ -5,6 +5,9 @@ GO
 CREATE PROCEDURE [internals].[CompareAndReconcile]
 	@our_table_name sysname,
 	@their_table_name sysname,
+	@use_columns nvarchar(max) = null,
+	@join_columns nvarchar(max) = null,
+	@rename_columns nvarchar(max) = null,
 	@import int = null, -- > 0 means import; < 0 means export
 	@added_rows bit = null,
 	@deleted_rows bit = null,
@@ -71,6 +74,9 @@ BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 	DECLARE @TAB CHAR(1) = CHAR(9)
 
+	/*
+	 * Check for table existence
+	 */
 	SET @params =
 		'@schema sysname,' + @CRLF +
 		'@table sysname,' + @CRLF +
@@ -94,6 +100,9 @@ BEGIN
 		GOTO complete
 	END
 
+	/*
+	 * Get table columns
+	 */
 	CREATE TABLE #columns
 	(
 		column_id int,
@@ -125,6 +134,55 @@ BEGIN
 		GOTO complete
 	END
 
+	/*
+	 * Filter to @use_columns
+	 */
+	IF @use_columns IS NOT NULL
+	BEGIN
+		CREATE TABLE #use_columns
+		(
+			name sysname
+		)
+
+		INSERT INTO #use_columns
+		SELECT * FROM internals.SplitColumnNames(@use_columns)
+		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+
+		IF @error <> 0
+		BEGIN
+			RAISERROR('Illegal column names specified in @use_columns; quote names with [...] if necessary', 16, 1)
+			GOTO complete
+		END
+
+		DECLARE @illegal_columns NVARCHAR(MAX)
+
+		-- gather illegal column names (if any) into a single string
+		SET @illegal_columns = STUFF(
+		(
+			SELECT ', ''' + uc.name + ''''
+			FROM #use_columns uc
+			LEFT OUTER JOIN #columns c
+			ON uc.name = c.name WHERE c.name IS NULL
+			FOR XML PATH('')
+		), 1, 2, '')
+		
+		IF @illegal_columns <> ''
+		BEGIN
+			RAISERROR('Column names %s specified in @use_columns do not exist in %s', 16, 1, @illegal_columns, @local_full_table_name)
+			GOTO complete
+		END
+
+		-- apply filter
+		DELETE c
+		FROM #columns c
+		LEFT OUTER JOIN #use_columns uc
+		ON c.name = uc.name
+		WHERE uc.name IS NULL
+	END
+
+	/*
+	 * Get table primay key columns
+	 */
 	CREATE TABLE #key_columns
 	(
 		column_id int,
