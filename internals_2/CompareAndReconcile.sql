@@ -23,9 +23,11 @@ BEGIN
 	DECLARE @params NVARCHAR(MAX)
 	DECLARE @sql NVARCHAR(MAX)
 
+	-- error message vars
+	DECLARE @illegal_columns NVARCHAR(MAX)
 	DECLARE @msg NVARCHAR(MAX)
 
-	-- return values
+	-- use to collect @@ return values
 	DECLARE @error INT
 	DECLARE @rowcount INT
 
@@ -156,8 +158,6 @@ BEGIN
 			GOTO complete
 		END
 
-		DECLARE @illegal_columns NVARCHAR(MAX)
-
 		-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
 		SET @rowcount = 0;
 		WITH IllegalColumns_CTE (name)
@@ -197,7 +197,7 @@ BEGIN
 	END
 
 	/*
-	 * Get table primay key columns
+	 * Holds table primay key columns or user-specified join columns
 	 */
 	CREATE TABLE #key_columns
 	(
@@ -205,36 +205,95 @@ BEGIN
 		name sysname
 	)
 
-	SET @params =
-		'@schema sysname,' + @CRLF +
-		'@table sysname'
-	SET @sql =
-		'SELECT c.column_id, c.name' + @CRLF +
-		'FROM ' + @local_database_part + '.sys.objects o' + @CRLF +
-		'INNER JOIN ' + @local_database_part + '.sys.schemas s' + @CRLF +
-		'ON o.schema_id = s.schema_id' + @CRLF +
-		'AND s.name = @schema' + @CRLF +
-		'INNER JOIN ' + @local_database_part + '.sys.indexes i' + @CRLF +
-		'ON o.object_id = i.object_id' + @CRLF +
-		'AND i.is_primary_key = 1' + @CRLF +
-		'INNER JOIN ' + @local_database_part + '.sys.index_columns ic' + @CRLF +
-		'ON i.object_id = ic.object_id' + @CRLF +
-		'AND i.index_id = ic.index_id' + @CRLF +
-		'INNER JOIN ' + @local_database_part + '.sys.columns c' + @CRLF +
-		'ON c.column_id = ic.column_id' + @CRLF +
-		'AND c.object_id = o.object_id' + @CRLF +
-		'WHERE o.name = @table'
-		
-	INSERT INTO #key_columns (column_id, name)
-	EXEC sp_executesql @sql, @params, @our_schema, @our_table
-	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
-
-	IF @error <> 0 GOTO complete
-
-	IF @rowcount = 0
+	/*
+	 * Use @join_columns for join instead of table primary keys, if provided
+	 */
+	IF @join_columns IS NOT NULL
 	BEGIN
-		RAISERROR('There are no primary keys for table %s. One or more primary keys are required to join the tables to be compared.', 16, 1, @local_full_table_name)
-		GOTO complete
+		CREATE TABLE #join_columns
+		(
+			name sysname
+		)
+
+		INSERT INTO #join_columns
+		SELECT * FROM internals.SplitColumnNames(@join_columns)
+		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+
+		IF @error <> 0
+		BEGIN
+			RAISERROR('*** Illegal or missing column names found in @join_columns ''%s'' (quote column names using [...] if necessary)', 16, 1, @join_columns)
+			GOTO complete
+		END
+
+		-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
+		SET @rowcount = 0;
+		WITH IllegalColumns_CTE (name)
+		AS
+		(
+			SELECT uc.name
+			FROM #join_columns uc
+			LEFT OUTER JOIN #columns c
+			ON uc.name = c.name
+			WHERE c.name IS NULL
+		)
+		SELECT
+			@illegal_columns = STUFF(
+			(
+				SELECT ', ''' + name + ''''
+				FROM IllegalColumns_CTE
+				FOR XML PATH('')
+			), 1, 2, ''),
+			@rowcount = (SELECT COUNT(*) FROM IllegalColumns_CTE)
+
+		IF @illegal_columns <> ''
+		BEGIN
+			IF @rowcount = 1
+				SET @msg = 'Column name %s specified in @join_columns does not exist in %s'
+			ELSE
+				SET @msg = 'Column names %s specified in @join_columns do not exist in %s'
+			RAISERROR(@msg, 16, 1, @illegal_columns, @local_full_table_name)
+			GOTO complete
+		END
+
+		INSERT INTO #key_columns (column_id, name)
+		SELECT c.column_id, c.name
+		FROM #columns c
+		INNER JOIN #join_columns jc
+		ON c.name = jc.name
+	END
+	ELSE
+	BEGIN
+		SET @params =
+			'@schema sysname,' + @CRLF +
+			'@table sysname'
+		SET @sql =
+			'SELECT c.column_id, c.name' + @CRLF +
+			'FROM ' + @local_database_part + '.sys.objects o' + @CRLF +
+			'INNER JOIN ' + @local_database_part + '.sys.schemas s' + @CRLF +
+			'ON o.schema_id = s.schema_id' + @CRLF +
+			'AND s.name = @schema' + @CRLF +
+			'INNER JOIN ' + @local_database_part + '.sys.indexes i' + @CRLF +
+			'ON o.object_id = i.object_id' + @CRLF +
+			'AND i.is_primary_key = 1' + @CRLF +
+			'INNER JOIN ' + @local_database_part + '.sys.index_columns ic' + @CRLF +
+			'ON i.object_id = ic.object_id' + @CRLF +
+			'AND i.index_id = ic.index_id' + @CRLF +
+			'INNER JOIN ' + @local_database_part + '.sys.columns c' + @CRLF +
+			'ON c.column_id = ic.column_id' + @CRLF +
+			'AND c.object_id = o.object_id' + @CRLF +
+			'WHERE o.name = @table'
+		
+		INSERT INTO #key_columns (column_id, name)
+		EXEC sp_executesql @sql, @params, @our_schema, @our_table
+		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+
+		IF @error <> 0 GOTO complete
+
+		IF @rowcount = 0
+		BEGIN
+			RAISERROR('There are no primary keys for table %s. One or more primary keys or a @join_columns parameter are required to join the tables to be compared.', 16, 1, @local_full_table_name)
+			GOTO complete
+		END
 	END
 
 	/*
