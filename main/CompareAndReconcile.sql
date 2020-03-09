@@ -23,10 +23,6 @@ BEGIN
 	DECLARE @params NVARCHAR(MAX)
 	DECLARE @sql NVARCHAR(MAX)
 
-	-- error message vars
-	DECLARE @illegal_columns NVARCHAR(MAX)
-	DECLARE @msg NVARCHAR(MAX)
-
 	-- use to collect @@ return values
 	DECLARE @error INT
 	DECLARE @rowcount INT
@@ -107,11 +103,7 @@ BEGIN
 	/*
 	 * Get local table columns
 	 */
-	CREATE TABLE #local_columns
-	(
-		column_id int,
-		name sysname
-	)
+	DECLARE @local_columns internals.ColumnsTable
 
 	SET @params =
 		'@schema sysname,' + @CRLF +
@@ -126,7 +118,7 @@ BEGIN
 		'ON o.object_id = c.object_id' + @CRLF +
 		'WHERE o.name = @table'
 		
-	INSERT INTO #local_columns (column_id, name)
+	INSERT INTO @local_columns (column_id, name)
 	EXEC sp_executesql @sql, @params, @our_schema, @our_table
 	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
@@ -141,21 +133,17 @@ BEGIN
 	/*
 	 * Validate @use_columns
 	 */
-	CREATE TABLE #use_columns
-	(
-		column_id int,
-		name sysname
-	)
+	DECLARE @use_columns_table internals.ColumnsTable
 
 	IF @use_columns IS NULL
 	BEGIN
-		INSERT INTO #use_columns (column_id, name)
+		INSERT INTO @use_columns_table (column_id, name)
 		SELECT column_id, name
-		FROM #local_columns
+		FROM @local_columns
 	END
 	ELSE
 	BEGIN
-		INSERT INTO #use_columns (name)
+		INSERT INTO @use_columns_table (name)
 		SELECT name FROM internals.SplitColumnNames(@use_columns)
 		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
@@ -165,52 +153,26 @@ BEGIN
 			GOTO complete
 		END
 
-		-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
-		SET @rowcount = 0;
-		WITH IllegalColumns_CTE (name)
-		AS
-		(
-			SELECT uc.name
-			FROM #use_columns uc
-			LEFT OUTER JOIN #local_columns c
-			ON uc.name = c.name
-			WHERE c.name IS NULL
-		)
-		SELECT
-			@illegal_columns = STUFF(
-			(
-				SELECT ', ''' + name + ''''
-				FROM IllegalColumns_CTE
-				FOR XML PATH('')
-			), 1, 2, ''),
-			@rowcount = (SELECT COUNT(*) FROM IllegalColumns_CTE)
+		EXEC internals.ValidateColumns
+			@use_columns_table, @local_columns,
+			'''', '''', 
+			'Column name %s specified in @use_columns does not exist in %s',
+			'Column names %s specified in @use_columns do not exist in %s',
+			@local_full_table_name
+		IF @@ERROR <> 0 GOTO complete
 
-		IF @illegal_columns <> ''
-		BEGIN
-			IF @rowcount = 1
-				SET @msg = 'Column name %s specified in @use_columns does not exist in %s'
-			ELSE
-				SET @msg = 'Column names %s specified in @use_columns do not exist in %s'
-			RAISERROR(@msg, 16, 1, @illegal_columns, @local_full_table_name)
-			GOTO complete
-		END
-
-		-- fill out #use_columns and give canonical name
+		-- fill out @use_columns_table and give canonical name
 		UPDATE uc
 		SET column_id = c.column_id, name = c.name
-		FROM #use_columns uc
-		INNER JOIN #local_columns c
+		FROM @use_columns_table uc
+		INNER JOIN @local_columns c
 		ON uc.name = c.name
 	END
 
 	/*
 	 * Confirm that all columns to be used exist remotely
 	 */
-	CREATE TABLE #remote_columns
-	(
-		column_id int,
-		name sysname
-	)
+	DECLARE @remote_columns internals.ColumnsTable
 
 	SET @params =
 		'@schema sysname,' + @CRLF +
@@ -225,7 +187,7 @@ BEGIN
 		'ON o.object_id = c.object_id' + @CRLF +
 		'WHERE o.name = @table'
 		
-	INSERT INTO #remote_columns (column_id, name)
+	INSERT INTO @remote_columns (column_id, name)
 	EXEC sp_executesql @sql, @params, @their_schema, @their_table
 	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
@@ -237,57 +199,28 @@ BEGIN
 		GOTO complete
 	END
 
-	-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
-	SET @rowcount = 0;
-	WITH IllegalColumns_CTE (name)
-	AS
-	(
-		SELECT c.name
-		FROM #use_columns c
-		LEFT OUTER JOIN #remote_columns rc
-		ON c.name = rc.name
-		WHERE rc.name IS NULL
-	)
-	SELECT
-		@illegal_columns = STUFF(
-		(
-			SELECT ', [' + name + ']' -- use [] here as these are already valid, at least locally
-			FROM IllegalColumns_CTE
-			FOR XML PATH('')
-		), 1, 2, ''),
-		@rowcount = (SELECT COUNT(*) FROM IllegalColumns_CTE)
-
-	IF @illegal_columns <> ''
-	BEGIN
-		IF @rowcount = 1
-			SET @msg = 'Required column %s does not exist in %s'
-		ELSE
-			SET @msg = 'Required columns %s do not exist in %s'
-		RAISERROR(@msg, 16, 1, @illegal_columns, @remote_full_table_name)
-		GOTO complete
-	END
+	EXEC internals.ValidateColumns
+		@use_columns_table, @remote_columns,
+		'[', ']', 
+		'Required column %s does not exist in %s',
+		'Required columns %s do not exist in %s',
+		@remote_full_table_name
+	IF @@ERROR <> 0 GOTO complete
 
 	/*
-	 * Holds table primay key columns or user-specified join columns
+	 * Holds table primary key columns or user-specified join columns
 	 */
-	CREATE TABLE #key_columns
-	(
-		column_id int,
-		name sysname
-	)
+	DECLARE @key_columns internals.ColumnsTable
 
 	/*
 	 * Use @join_columns for join instead of table primary keys, if provided
 	 */
 	IF @join_columns IS NOT NULL
 	BEGIN
-		CREATE TABLE #join_columns
-		(
-			name sysname
-		)
+		DECLARE @join_columns_table internals.ColumnsTable
 
-		INSERT INTO #join_columns
-		SELECT * FROM internals.SplitColumnNames(@join_columns)
+		INSERT INTO @join_columns_table (name)
+		SELECT name FROM internals.SplitColumnNames(@join_columns)
 		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
 		IF @error <> 0
@@ -296,40 +229,18 @@ BEGIN
 			GOTO complete
 		END
 
-		-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
-		SET @rowcount = 0;
-		WITH IllegalColumns_CTE (name)
-		AS
-		(
-			SELECT jc.name
-			FROM #join_columns jc
-			LEFT OUTER JOIN #use_columns c
-			ON jc.name = c.name
-			WHERE c.name IS NULL
-		)
-		SELECT
-			@illegal_columns = STUFF(
-			(
-				SELECT ', ''' + name + ''''
-				FROM IllegalColumns_CTE
-				FOR XML PATH('')
-			), 1, 2, ''),
-			@rowcount = (SELECT COUNT(*) FROM IllegalColumns_CTE)
+		EXEC internals.ValidateColumns
+			@join_columns_table, @use_columns_table,
+			'''', '''',
+			'Column name %s specified in @join_columns does not exist in %s',
+			'Column names %s specified in @join_columns do not exist in %s',
+			@local_full_table_name
+		IF @@ERROR <> 0 GOTO complete
 
-		IF @illegal_columns <> ''
-		BEGIN
-			IF @rowcount = 1
-				SET @msg = 'Column name %s specified in @join_columns does not exist in %s'
-			ELSE
-				SET @msg = 'Column names %s specified in @join_columns do not exist in %s'
-			RAISERROR(@msg, 16, 1, @illegal_columns, @local_full_table_name)
-			GOTO complete
-		END
-
-		INSERT INTO #key_columns (column_id, name)
+		INSERT INTO @key_columns (column_id, name)
 		SELECT c.column_id, c.name
-		FROM #use_columns c
-		INNER JOIN #join_columns jc
+		FROM @use_columns_table c
+		INNER JOIN @join_columns_table jc
 		ON c.name = jc.name
 	END
 	ELSE
@@ -354,7 +265,7 @@ BEGIN
 			'AND c.object_id = o.object_id' + @CRLF +
 			'WHERE o.name = @table'
 		
-		INSERT INTO #key_columns (column_id, name)
+		INSERT INTO @key_columns (column_id, name)
 		EXEC sp_executesql @sql, @params, @our_schema, @our_table
 		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
@@ -377,9 +288,9 @@ BEGIN
 
 	SET @i = 0
 	SELECT
-		@JOIN = @JOIN + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].[' + #key_columns.name + '] = [theirs].[' + #key_columns.name + ']' + @CRLF,
+		@JOIN = @JOIN + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].[' + kc.name + '] = [theirs].[' + kc.name + ']' + @CRLF,
 		@i = @i + 1
-	FROM #key_columns
+	FROM @key_columns kc
 
 	DECLARE @lower NVARCHAR(MAX)
 	DECLARE @Upper NVARCHAR(MAX)
@@ -396,11 +307,7 @@ BEGIN
 		DECLARE @has_identity BIT = 0
 
 		-- there can only be one
-		CREATE TABLE #identity_columns
-		(
-			column_id int,
-			name sysname
-		)
+		DECLARE @identity_columns internals.ColumnsTable
 
 		-- only need to work with identity columns for add and change, not deletes
 		IF @added_rows = 1 OR @changed_rows = 1
@@ -426,7 +333,7 @@ BEGIN
 
 			SET @sql = REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_database_part ELSE @remote_database_part END)
 
-			INSERT INTO #identity_columns (column_id, name)
+			INSERT INTO @identity_columns (column_id, name)
 			EXEC sp_executesql @sql, @params, @target_schema, @target_table
 			SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
@@ -449,8 +356,8 @@ BEGIN
 
 			SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '[' + #use_columns.name + '],' + @CRLF
-			FROM #use_columns
+			SELECT @sql = @sql + @TAB + '[' + name + '],' + @CRLF
+			FROM @use_columns_table
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -458,8 +365,8 @@ BEGIN
 
 			SELECT @sql = @sql + 'SELECT' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '%2.[' + #use_columns.name + '],' + @CRLF
-			FROM #use_columns
+			SELECT @sql = @sql + @TAB + '%2.[' + name + '],' + @CRLF
+			FROM @use_columns_table
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -469,9 +376,9 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '  AND ' END +
-					'%1.[' + #key_columns.name + '] IS NULL' + @CRLF,
+					'%1.[' + name + '] IS NULL' + @CRLF,
 				@i = @i + 1
-			FROM #key_columns
+			FROM @key_columns
 
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
@@ -503,9 +410,9 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-					'%1.[' + #key_columns.name + '] IS NOT NULL AND %2.[' + #key_columns.name + '] IS NULL' + @CRLF,
+					'%1.[' + name + '] IS NOT NULL AND %2.[' + name + '] IS NULL' + @CRLF,
 				@i = @i + 1
-			FROM #key_columns
+			FROM @key_columns
 
 			SET @sql = REPLACE(REPLACE(@sql, '%1', @to), '%2', @from);
 
@@ -531,12 +438,12 @@ BEGIN
 
 			SET @i = 0
 			SELECT
-				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + #use_columns.name + '] = %2.[' + #use_columns.name + '],' + @CRLF,
+				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + uc.name + '] = %2.[' + uc.name + '],' + @CRLF,
 				@i = @i + 1
-			FROM #use_columns
-			LEFT OUTER JOIN #identity_columns
-			ON #use_columns.column_id = #identity_columns.column_id
-			WHERE #identity_columns.column_id IS NULL
+			FROM @use_columns_table uc
+			LEFT OUTER JOIN @identity_columns ic
+			ON uc.column_id = ic.column_id
+			WHERE ic.column_id IS NULL
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -546,14 +453,14 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-					'[ours].[' + #use_columns.name + '] IS NULL AND [theirs].[' + #use_columns.name + '] IS NOT NULL' + @CRLF +
-					'   OR [ours].[' + #use_columns.name + '] IS NOT NULL AND [theirs].[' + #use_columns.name + '] IS NULL' + @CRLF +
-					'   OR [ours].[' + #use_columns.name + '] <> [theirs].[' + #use_columns.name + ']' + @CRLF,
+					'[ours].[' + uc.name + '] IS NULL AND [theirs].[' + uc.name + '] IS NOT NULL' + @CRLF +
+					'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + uc.name + '] IS NULL' + @CRLF +
+					'   OR [ours].[' + uc.name + '] <> [theirs].[' + uc.name + ']' + @CRLF,
 				@i = @i + 1
-			FROM #use_columns
-			LEFT OUTER JOIN #key_columns
-			ON #use_columns.column_id = #key_columns.column_id
-			WHERE #key_columns.column_id IS NULL
+			FROM @use_columns_table uc
+			LEFT OUTER JOIN @key_columns kc
+			ON uc.column_id = kc.column_id
+			WHERE kc.column_id IS NULL
 
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
@@ -578,12 +485,12 @@ BEGIN
 	SET @sql = 'SELECT '
 
 	SET @sql = @sql + '''OURS >>>'' AS [ ],' + @CRLF
-	SELECT @sql = @sql + @TAB + '   [ours].[' + #local_columns.name + '],' + @CRLF
-	FROM #local_columns
+	SELECT @sql = @sql + @TAB + '   [ours].[' + name + '],' + @CRLF
+	FROM @local_columns
 
 	SET @sql = @sql + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
-	SELECT @sql = @sql + @TAB + '   [theirs].[' + #remote_columns.name + '],' + @CRLF
-	FROM #remote_columns
+	SELECT @sql = @sql + @TAB + '   [theirs].[' + name + '],' + @CRLF
+	FROM @remote_columns
 
 	SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -593,20 +500,20 @@ BEGIN
 	SELECT
 		@sql = @sql +
 			CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-			'[ours].[' + #key_columns.name + '] IS NULL AND [theirs].[' + #key_columns.name + '] IS NOT NULL' + @CRLF +
-			'   OR [ours].[' + #key_columns.name + '] IS NOT NULL AND [theirs].[' + #key_columns.name + '] IS NULL' + @CRLF,
+			'[ours].[' + name + '] IS NULL AND [theirs].[' + name + '] IS NOT NULL' + @CRLF +
+			'   OR [ours].[' + name + '] IS NOT NULL AND [theirs].[' + name + '] IS NULL' + @CRLF,
 		@i = @i + 1
-	FROM #key_columns
+	FROM @key_columns
 
 	SELECT
 		@sql = @sql +
-			'   OR [ours].[' + #use_columns.name + '] IS NULL AND [theirs].[' + #use_columns.name + '] IS NOT NULL' + @CRLF +
-			'   OR [ours].[' + #use_columns.name + '] IS NOT NULL AND [theirs].[' + #use_columns.name + '] IS NULL' + @CRLF +
-			'   OR [ours].[' + #use_columns.name + '] <> [theirs].[' + #use_columns.name + ']' + @CRLF
-	FROM #use_columns
-	LEFT OUTER JOIN #key_columns
-	ON #use_columns.column_id = #key_columns.column_id
-	WHERE #key_columns.column_id IS NULL
+			'   OR [ours].[' + uc.name + '] IS NULL AND [theirs].[' + uc.name + '] IS NOT NULL' + @CRLF +
+			'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + uc.name + '] IS NULL' + @CRLF +
+			'   OR [ours].[' + uc.name + '] <> [theirs].[' + uc.name + ']' + @CRLF
+	FROM @use_columns_table uc
+	LEFT OUTER JOIN @key_columns kc
+	ON uc.column_id = kc.column_id
+	WHERE kc.column_id IS NULL
 
 	--PRINT @sql + @CRLF
 
