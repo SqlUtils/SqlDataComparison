@@ -2,51 +2,96 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [dbo].[DataCompare]
-	@table_name sysname,
-	@remote_db_name sysname,
-	@import_theirs_to_ours bit = null,
-	@import_ours_to_theirs bit = null,
-	@schema_name sysname = 'dbo'
+CREATE PROCEDURE [internals].[DataCompare]
+	@our_table_name sysname,
+	@their_table_name sysname,
+	@import_added_rows int = null,
+	@import_deleted_rows int = null,
+	@import_changed_rows int = null
 AS
 BEGIN
 	SET NOCOUNT ON;
 
+	-- loop var
+	DECLARE @i INT
+
+	-- holds SQL for the current operation
+	DECLARE @params NVARCHAR(MAX)
+	DECLARE @sql NVARCHAR(MAX)
+
+	-- return values
+	DECLARE @error INT
+	DECLARE @rowcount INT
+
+	/*
+	 * parse @our_table_name
+	 */
+	DECLARE @our_server sysname
+	DECLARE @our_database sysname
+	DECLARE @our_schema sysname
+	DECLARE @our_table sysname
+	DECLARE @local_database_part sysname
+	DECLARE @local_full_table_name sysname
+
+	EXEC internals.ParseQualifiedTableName
+		@qualified_table_name = @our_table_name,
+		@server = @our_server OUTPUT,
+		@database = @our_database OUTPUT,
+		@schema = @our_schema OUTPUT,
+		@table = @our_table OUTPUT,
+		@full_database_part = @local_database_part OUTPUT,
+		@full_table_name = @local_full_table_name OUTPUT,
+		@param_name = '@our_table_name'
+
+	IF @@ERROR <> 0 GOTO complete
+
+	/*
+	 * parse @their_table_name
+	 */
+	DECLARE @their_server sysname
+	DECLARE @their_database sysname
+	DECLARE @their_schema sysname
+	DECLARE @their_table sysname
+	DECLARE @remote_database_part sysname
+	DECLARE @remote_full_table_name sysname
+
+	EXEC internals.ParseQualifiedTableName
+		@qualified_table_name = @their_table_name,
+		@server = @their_server OUTPUT,
+		@database = @their_database OUTPUT,
+		@schema = @their_schema OUTPUT,
+		@table = @their_table OUTPUT,
+		@full_database_part = @remote_database_part OUTPUT,
+		@full_table_name = @remote_full_table_name OUTPUT,
+		@param_name = '@their_table_name'
+
+	IF @@ERROR <> 0 GOTO complete
+
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 	DECLARE @TAB CHAR(1) = CHAR(9)
 
-	IF @table_name IS NULL OR @table_name = ''
+	SET @params =
+		'@schema sysname,' + @CRLF +
+		'@table sysname,' + @CRLF +
+		'@object_id int = null output'
+	SET @sql =
+		'SELECT @object_id = o.object_id' + @CRLF +
+		'FROM ' + @local_database_part + '.sys.objects o' + @CRLF +
+		'INNER JOIN ' + @local_database_part + '.sys.schemas s' + @CRLF +
+		'ON o.schema_id = s.schema_id' + @CRLF +
+		'AND s.name = @schema' + @CRLF +
+		'WHERE o.name = @table' + @CRLF
+
+	EXEC sp_executesql @sql, @params, @our_schema, @our_table
+	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+
+	IF @error <> 0 GOTO complete
+
+	IF @rowcount = 0
 	BEGIN
-		RAISERROR('Parameter @table_name is required', 16, 1)
+		RAISERROR('Cannot find table %s', 16, 1, @local_full_table_name)
 		GOTO complete
 	END
-
-	IF @remote_db_name IS NULL OR @remote_db_name = ''
-	BEGIN
-		RAISERROR('Parameter @remote_db_name is required', 16, 1)
-		GOTO complete
-	END
-
-	DECLARE @object_id INT
-
-	SELECT @object_id = o.object_id
-	FROM sys.objects o
-	INNER JOIN sys.schemas s
-	ON o.schema_id = s.schema_id
-	AND s.name = @schema_name
-	WHERE o.name = @table_name
-
-	IF @@ROWCOUNT = 0
-	BEGIN
-		RAISERROR('Cannot find base table %s.%s in local database', 16, 1, @schema_name, @table_name)
-		GOTO complete
-	END
-
-	DECLARE @HasIdentity BIT = 0
-
-	SELECT @HasIdentity = 1
-	FROM sys.identity_columns
-	WHERE object_id = @object_id
 
 	CREATE TABLE #columns
 	(
@@ -54,19 +99,28 @@ BEGIN
 		name sysname
 	)
 
+	SET @params =
+		'@schema sysname,' + @CRLF +
+		'@table sysname'
+	SET @sql =
+		'SELECT c.column_id, c.name' + @CRLF +
+		'FROM ' + @local_database_part + '.sys.objects o' + @CRLF +
+		'INNER JOIN ' + @local_database_part + '.sys.schemas s' + @CRLF +
+		'ON o.schema_id = s.schema_id' + @CRLF +
+		'AND s.name = @schema' + @CRLF +
+		'INNER JOIN ' + @local_database_part + '.sys.columns c' + @CRLF +
+		'ON o.object_id = c.object_id' + @CRLF +
+		'WHERE o.name = @table'
+		
 	INSERT INTO #columns (column_id, name)
-	SELECT c.column_id, c.name
-	FROM sys.objects o
-	INNER JOIN sys.schemas s
-	ON o.schema_id = s.schema_id
-	AND s.name = @schema_name
-	INNER JOIN sys.columns c
-	ON o.object_id = c.object_id
-	WHERE o.name = @table_name
+	EXEC sp_executesql @sql, @params, @our_schema, @our_table
+	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
-	IF @@ROWCOUNT = 0
+	IF @error <> 0 GOTO complete
+
+	IF @rowcount = 0
 	BEGIN
-		RAISERROR('There are no columns for table %s.%s in local database', 16, 1, @schema_name, @table_name)
+		RAISERROR('There are no columns for table %s', 16, 1, @local_full_table_name)
 		GOTO complete
 	END
 
@@ -76,42 +130,45 @@ BEGIN
 		name sysname
 	)
 
+	SET @params =
+		'@schema sysname,' + @CRLF +
+		'@table sysname'
+	SET @sql =
+		'SELECT c.column_id, c.name' + @CRLF +
+		'FROM ' + @local_database_part + '.sys.objects o' + @CRLF +
+		'INNER JOIN ' + @local_database_part + '.sys.schemas s' + @CRLF +
+		'ON o.schema_id = s.schema_id' + @CRLF +
+		'AND s.name = @schema' + @CRLF +
+		'INNER JOIN ' + @local_database_part + '.sys.indexes i' + @CRLF +
+		'ON o.object_id = i.object_id' + @CRLF +
+		'AND i.is_primary_key = 1' + @CRLF +
+		'INNER JOIN ' + @local_database_part + '.sys.index_columns ic' + @CRLF +
+		'ON i.object_id = ic.object_id' + @CRLF +
+		'AND i.index_id = ic.index_id' + @CRLF +
+		'INNER JOIN ' + @local_database_part + '.sys.columns c' + @CRLF +
+		'ON c.column_id = ic.column_id' + @CRLF +
+		'AND c.object_id = o.object_id' + @CRLF +
+		'WHERE o.name = @table'
+		
 	INSERT INTO #key_columns (column_id, name)
-	SELECT c.column_id, c.name
-	FROM sys.objects o
-	INNER JOIN sys.schemas s
-	ON o.schema_id = s.schema_id
-	AND s.name = @schema_name
-	INNER JOIN sys.indexes i
-	ON o.object_id = i.object_id
-	AND i.is_primary_key = 1
-	INNER JOIN sys.index_columns ic
-	ON i.object_id = ic.object_id
-	AND i.index_id = ic.index_id
-	INNER JOIN sys.columns c
-	ON c.column_id = ic.column_id
-	AND c.object_id = o.object_id
-	WHERE o.name = @table_name
+	EXEC sp_executesql @sql, @params, @our_schema, @our_table
+	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
-	IF @@ROWCOUNT = 0
+	IF @error <> 0 GOTO complete
+
+	IF @rowcount = 0
 	BEGIN
-		RAISERROR('There are no primary keys for table %s.%s. One or more primary keys are required to join the tables to be compared.', 16, 1, @schema_name, @table_name)
+		RAISERROR('There are no primary keys for table %s. One or more primary keys are required to join the tables to be compared.', 16, 1, @local_full_table_name)
 		GOTO complete
 	END
-
-	DECLARE @i INT
-
-	-- local and remote table names
-	DECLARE @local_table_name sysname = @schema_name + '.' + @table_name
-	DECLARE @remote_table_name sysname = @remote_db_name + '.' + @schema_name + '.' + @table_name
 
 	/*
 	 * CREATE THE COMMON JOIN SQL
 	 */
 	DECLARE @JOIN NVARCHAR(MAX)
 
-	SELECT @JOIN = 'FROM ' + @local_table_name + ' [ours]' + @CRLF
-	SELECT @JOIN = @JOIN + 'FULL OUTER JOIN ' + @remote_table_name + ' [theirs]' + @CRLF
+	SELECT @JOIN = 'FROM ' + @local_full_table_name + ' [ours]' + @CRLF
+	SELECT @JOIN = @JOIN + 'FULL OUTER JOIN ' + @remote_full_table_name + ' [theirs]' + @CRLF
 
 	SET @i = 0
 	SELECT
@@ -119,40 +176,60 @@ BEGIN
 		@i = @i + 1
 	FROM #key_columns
 
-	-- Holds SQL for the current operation
-	DECLARE @SQL NVARCHAR(MAX)
-
-	DECLARE @error INT
-	DECLARE @rowcount INT
-
 	/*
 	 * THEIRS TO OURS AND OURS TO THEIRS
 	 */
-	IF @import_theirs_to_ours = 1 OR @import_ours_to_theirs = 1
+	IF @import_added_rows <> 0
 	BEGIN
-		SET @SQL = CASE WHEN @HasIdentity = 1 THEN 'SET IDENTITY_INSERT %0 ON;' + @CRLF + @CRLF ELSE '' END
+		DECLARE @has_identity BIT = 0
 
-		SET @SQL = @SQL + 'INSERT INTO %0 (' + @CRLF
+		SET @params =
+			'@schema sysname,' + @CRLF +
+			'@table sysname,' + @CRLF +
+			'@has_identity sysname output'
+		SET @sql =
+			'SELECT @has_identity = 1' + @CRLF +
+			'FROM %0.sys.identity_columns ic' + @CRLF +
+			'INNER JOIN %0.sys.objects o' + @CRLF +
+			'ON ic.object_id = o.object_id' + @CRLF +
+			'INNER JOIN %0.sys.schemas s' + @CRLF +
+			'ON o.schema_id = s.schema_id' + @CRLF +
+			'AND s.name = @schema' + @CRLF +
+			'WHERE o.name = @table' + @CRLF
 
-		SELECT @SQL = @SQL + @TAB + '[' + #columns.name + '],' + @CRLF
+		DECLARE @to_schema sysname = CASE WHEN @import_added_rows > 0 THEN @our_schema ELSE @their_schema END
+		DECLARE @to_table sysname = CASE WHEN @import_added_rows > 0 THEN @our_table ELSE @their_table END
+
+		SET @sql = REPLACE(@sql, '%0', CASE WHEN @import_added_rows > 0 THEN @local_database_part ELSE @remote_database_part END)
+
+		EXEC sp_executesql @sql, @params, @to_schema, @to_table, @has_identity OUTPUT
+		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+
+		IF @error <> 0 GOTO complete
+
+		SET @sql = CASE WHEN @has_identity = 1 THEN 'SET IDENTITY_INSERT %0 ON;' + @CRLF + @CRLF ELSE '' END
+
+		SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
+
+		SELECT @sql = @sql + @TAB + '[' + #columns.name + '],' + @CRLF
 		FROM #columns
 
-		SELECT @SQL = SUBSTRING(@SQL, 1, LEN(@SQL) - LEN(@CRLF) - 1) + @CRLF
+		SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-		SELECT @SQL = @SQL + ')' + @CRLF
+		SELECT @sql = @sql + ')' + @CRLF
 
-		SELECT @SQL = @SQL + 'SELECT' + @CRLF
+		SELECT @sql = @sql + 'SELECT' + @CRLF
 
-		SELECT @SQL = @SQL + @TAB + '%1.[' + #columns.name + '],' + @CRLF
+		SELECT @sql = @sql + @TAB + '%1.[' + #columns.name + '],' + @CRLF
 		FROM #columns
 
-		SELECT @SQL = SUBSTRING(@SQL, 1, LEN(@SQL) - LEN(@CRLF) - 1) + @CRLF
+		SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-		SELECT @SQL = @SQL + @JOIN
+		SELECT @sql = @sql + @JOIN
 
 		SET @i = 0
 		SELECT
-			@SQL = @SQL +
+			@sql = @sql +
 				CASE WHEN @i = 0 THEN 'WHERE ' ELSE '  AND ' END +
 				'%2.[' + #key_columns.name + '] IS NULL' + @CRLF,
 			@i = @i + 1
@@ -161,62 +238,47 @@ BEGIN
 		-- don't explicitly turn off IDENTITY_INSERT as it loses the rowcount and is
 		-- turned off automatically when we leave the scope of the EXEC()
 
-		--PRINT @SQL+@CRLF
+		--PRINT @sql+@CRLF
+
+		DECLARE @from sysname = CASE WHEN @import_added_rows > 0 THEN '[theirs]' ELSE '[ours]' END
+		DECLARE @to sysname = CASE WHEN @import_added_rows > 0 THEN '[ours]' ELSE '[theirs]' END
 
 		DECLARE @IMPORT_SQL NVARCHAR(MAX)
 
-		IF @import_theirs_to_ours = 1
-		BEGIN
-			SET @IMPORT_SQL = REPLACE(REPLACE(REPLACE(@SQL, '%0', @local_table_name), '%1', '[theirs]'), '%2', '[ours]');
+		SET @IMPORT_SQL = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import_added_rows > 0 THEN @local_full_table_name ELSE @remote_full_table_name END), '%1', @from), '%2', @to);
 
-			--PRINT @IMPORT_SQL+@CRLF
+		--PRINT @IMPORT_SQL+@CRLF
 
-			SET NOCOUNT OFF;
-			EXEC (@IMPORT_SQL)
-			SELECT @error = @@ERROR, @rowcount = @@ROWCOUNT
-			SET NOCOUNT ON;
+		SET NOCOUNT OFF;
+		EXEC (@IMPORT_SQL)
+		SELECT @error = @@ERROR, @rowcount = @@ROWCOUNT
+		SET NOCOUNT ON;
 
-			IF @error = 0
-				RAISERROR('Requested import completed with no errors. Transferred %d rows from theirs into ours.', 0, 1, @rowcount)
-		END
-
-		IF @import_ours_to_theirs = 1
-		BEGIN
-			SET @IMPORT_SQL = REPLACE(REPLACE(REPLACE(@SQL, '%0', @remote_table_name), '%1', '[ours]'), '%2', '[theirs]');
-
-			--PRINT @IMPORT_SQL+@CRLF
-
-			SET NOCOUNT OFF;
-			EXEC (@IMPORT_SQL)
-			SELECT @error = @@ERROR, @rowcount = @@ROWCOUNT
-			SET NOCOUNT ON;
-
-			IF @error = 0
-				RAISERROR('Requested import completed with no errors. Transferred %d rows from ours into theirs.', 0, 1, @rowcount)
-		END
+		IF @error = 0
+			RAISERROR('Requested import completed with no errors. Transferred %d rows from %s into %s.', 0, 1, @rowcount, @from, @to)
 	END
 
 	/*
 	 * DISPLAY THE DATA DIFFERENCES
 	 */
 
-	SET @SQL = 'SELECT '
+	SET @sql = 'SELECT '
 
-	SET @SQL = @SQL + '''OURS >>>'' AS [ ],' + @CRLF
-	SELECT @SQL = @SQL + @TAB + '   [ours].[' + #columns.name + '],' + @CRLF
+	SET @sql = @sql + '''OURS >>>'' AS [ ],' + @CRLF
+	SELECT @sql = @sql + @TAB + '   [ours].[' + #columns.name + '],' + @CRLF
 	FROM #columns
 
-	SET @SQL = @SQL + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
-	SELECT @SQL = @SQL + @TAB + '   [theirs].[' + #columns.name + '],' + @CRLF
+	SET @sql = @sql + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
+	SELECT @sql = @sql + @TAB + '   [theirs].[' + #columns.name + '],' + @CRLF
 	FROM #columns
 
-	SELECT @SQL = SUBSTRING(@SQL, 1, LEN(@SQL) - LEN(@CRLF) - 1) + @CRLF
+	SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-	SELECT @SQL = @SQL + @JOIN
+	SELECT @sql = @sql + @JOIN
 
 	SET @i = 0
 	SELECT
-		@SQL = @SQL +
+		@sql = @sql +
 			CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
 			'[ours].[' + #key_columns.name + '] IS NULL AND [theirs].[' + #key_columns.name + '] IS NOT NULL' + @CRLF +
 			'   OR [ours].[' + #key_columns.name + '] IS NOT NULL AND [theirs].[' + #key_columns.name + '] IS NULL' + @CRLF,
@@ -224,7 +286,7 @@ BEGIN
 	FROM #key_columns
 
 	SELECT
-		@SQL = @SQL +
+		@sql = @sql +
 			'   OR [ours].[' + #columns.name + '] IS NULL AND [theirs].[' + #columns.name + '] IS NOT NULL' + @CRLF +
 			'   OR [ours].[' + #columns.name + '] IS NOT NULL AND [theirs].[' + #columns.name + '] IS NULL' + @CRLF +
 			'   OR [ours].[' + #columns.name + '] <> [theirs].[' + #columns.name + ']' + @CRLF,
@@ -234,14 +296,14 @@ BEGIN
 	ON #columns.column_id = #key_columns.column_id
 	WHERE #key_columns.column_id IS NULL
 
-	--PRINT @SQL + @CRLF
+	--PRINT @sql + @CRLF
 
-	EXEC (@SQL)
+	EXEC (@sql)
 
 	IF @@ROWCOUNT > 0
-		RAISERROR('Data differences found between OURS >>> %s and THEIRS >>> %s.%sSwitch to results window to view differences.%s - Call again with @import_theirs_to_ours or @import_ours_to_theirs set to transfer changes.%s - Differences in rows which are in both need to be resolved by hand.', 16, 1, @local_table_name, @remote_table_name, @CRLF, @CRLF, @CRLF)
+		RAISERROR('Data differences found between OURS >>> %s and THEIRS >>> %s.%sSwitch to results window to view differences.%s - Call again with @import_theirs_to_ours or @import_ours_to_theirs set to transfer changes.%s - Differences in rows which are in both need to be resolved by hand.', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
 	ELSE
-		RAISERROR('No data differences found between OURS >>> %s and THEIRS >>> %s.', 0, 1, @local_table_name, @remote_table_name)
+		RAISERROR('No data differences found between OURS >>> %s and THEIRS >>> %s.', 0, 1, @local_full_table_name, @remote_full_table_name)
 
 complete:
 END
