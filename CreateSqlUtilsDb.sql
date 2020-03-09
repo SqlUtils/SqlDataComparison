@@ -13,3 +13,6 @@ GO
 
 USE SqlUtils
 GO
+
+CREATE SCHEMA internals
+GO

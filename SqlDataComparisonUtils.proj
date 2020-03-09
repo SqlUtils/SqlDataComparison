@@ -1,0 +1,25 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- https://stackoverflow.com/questions/15858710/how-concatenate-files-in-msbuild-and-preserve-tabs-and-spaces -->
+  <Target Name="ConcatenateScripts">
+    <!-- List all the files you want to concatenate. -->
+    <ItemGroup>
+      <ConcatFiles Include="CreateSqlUtilsDb.sql;internals\ParseQualifiedTableName.sql;internals\CompareAndReconcile.sql;dbo\*.sql"/>
+    </ItemGroup>
+
+    <!-- Read the contents of the files (preserving tabs/spaces). -->
+    <ItemGroup>
+      <FileContents Include="PRINT N'%(ConcatFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(ConcatFiles.Identity)))"/>
+    </ItemGroup>
+    <ItemGroup>
+      <FileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
+    </ItemGroup>
+
+    <!-- Write the result to a single file. -->
+    <WriteLinesToFile File="build\Install.sql" Lines="@(FileContents)" Overwrite="true" />
+  </Target>
+
+  <!-- Concatenate scripts on Build. -->
+  <Target Name="Build">
+    <CallTarget Targets="ConcatenateScripts"/>
+  </Target>
+</Project>

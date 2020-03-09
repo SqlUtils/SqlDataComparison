@@ -37,3 +37,4 @@ BEGIN
 
 completed:
 END
+GO
