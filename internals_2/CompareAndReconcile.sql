@@ -105,9 +105,9 @@ BEGIN
 	END
 
 	/*
-	 * Get table columns
+	 * Get local table columns
 	 */
-	CREATE TABLE #columns
+	CREATE TABLE #local_columns
 	(
 		column_id int,
 		name sysname
@@ -126,7 +126,7 @@ BEGIN
 		'ON o.object_id = c.object_id' + @CRLF +
 		'WHERE o.name = @table'
 		
-	INSERT INTO #columns (column_id, name)
+	INSERT INTO #local_columns (column_id, name)
 	EXEC sp_executesql @sql, @params, @our_schema, @our_table
 	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
@@ -139,17 +139,24 @@ BEGIN
 	END
 
 	/*
-	 * Filter to @use_columns
+	 * Validate @use_columns
 	 */
-	IF @use_columns IS NOT NULL
-	BEGIN
-		CREATE TABLE #use_columns
-		(
-			name sysname
-		)
+	CREATE TABLE #use_columns
+	(
+		column_id int,
+		name sysname
+	)
 
-		INSERT INTO #use_columns
-		SELECT * FROM internals.SplitColumnNames(@use_columns)
+	IF @use_columns IS NULL
+	BEGIN
+		INSERT INTO #use_columns (column_id, name)
+		SELECT column_id, name
+		FROM #local_columns
+	END
+	ELSE
+	BEGIN
+		INSERT INTO #use_columns (name)
+		SELECT name FROM internals.SplitColumnNames(@use_columns)
 		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
 		IF @error <> 0
@@ -165,7 +172,7 @@ BEGIN
 		(
 			SELECT uc.name
 			FROM #use_columns uc
-			LEFT OUTER JOIN #columns c
+			LEFT OUTER JOIN #local_columns c
 			ON uc.name = c.name
 			WHERE c.name IS NULL
 		)
@@ -188,12 +195,76 @@ BEGIN
 			GOTO complete
 		END
 
-		-- apply filter
-		DELETE c
-		FROM #columns c
-		LEFT OUTER JOIN #use_columns uc
-		ON c.name = uc.name
-		WHERE uc.name IS NULL
+		-- fill out #use_columns and give canonical name
+		UPDATE uc
+		SET column_id = c.column_id, name = c.name
+		FROM #use_columns uc
+		INNER JOIN #local_columns c
+		ON uc.name = c.name
+	END
+
+	/*
+	 * Confirm that all columns to be used exist remotely
+	 */
+	CREATE TABLE #remote_columns
+	(
+		column_id int,
+		name sysname
+	)
+
+	SET @params =
+		'@schema sysname,' + @CRLF +
+		'@table sysname'
+	SET @sql =
+		'SELECT c.column_id, c.name' + @CRLF +
+		'FROM ' + @remote_database_part + '.sys.objects o' + @CRLF +
+		'INNER JOIN ' + @remote_database_part + '.sys.schemas s' + @CRLF +
+		'ON o.schema_id = s.schema_id' + @CRLF +
+		'AND s.name = @schema' + @CRLF +
+		'INNER JOIN ' + @remote_database_part + '.sys.columns c' + @CRLF +
+		'ON o.object_id = c.object_id' + @CRLF +
+		'WHERE o.name = @table'
+		
+	INSERT INTO #remote_columns (column_id, name)
+	EXEC sp_executesql @sql, @params, @their_schema, @their_table
+	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+
+	IF @error <> 0 GOTO complete
+
+	IF @rowcount = 0
+	BEGIN
+		RAISERROR('There are no columns for table %s', 16, 1, @remote_full_table_name)
+		GOTO complete
+	END
+
+	-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
+	SET @rowcount = 0;
+	WITH IllegalColumns_CTE (name)
+	AS
+	(
+		SELECT c.name
+		FROM #use_columns c
+		LEFT OUTER JOIN #remote_columns rc
+		ON c.name = rc.name
+		WHERE rc.name IS NULL
+	)
+	SELECT
+		@illegal_columns = STUFF(
+		(
+			SELECT ', [' + name + ']' -- use [] here as these are already valid, at least locally
+			FROM IllegalColumns_CTE
+			FOR XML PATH('')
+		), 1, 2, ''),
+		@rowcount = (SELECT COUNT(*) FROM IllegalColumns_CTE)
+
+	IF @illegal_columns <> ''
+	BEGIN
+		IF @rowcount = 1
+			SET @msg = 'Required column %s does not exist in %s'
+		ELSE
+			SET @msg = 'Required columns %s do not exist in %s'
+		RAISERROR(@msg, 16, 1, @illegal_columns, @remote_full_table_name)
+		GOTO complete
 	END
 
 	/*
@@ -230,10 +301,10 @@ BEGIN
 		WITH IllegalColumns_CTE (name)
 		AS
 		(
-			SELECT uc.name
-			FROM #join_columns uc
-			LEFT OUTER JOIN #columns c
-			ON uc.name = c.name
+			SELECT jc.name
+			FROM #join_columns jc
+			LEFT OUTER JOIN #use_columns c
+			ON jc.name = c.name
 			WHERE c.name IS NULL
 		)
 		SELECT
@@ -257,7 +328,7 @@ BEGIN
 
 		INSERT INTO #key_columns (column_id, name)
 		SELECT c.column_id, c.name
-		FROM #columns c
+		FROM #use_columns c
 		INNER JOIN #join_columns jc
 		ON c.name = jc.name
 	END
@@ -378,8 +449,8 @@ BEGIN
 
 			SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '[' + #columns.name + '],' + @CRLF
-			FROM #columns
+			SELECT @sql = @sql + @TAB + '[' + #use_columns.name + '],' + @CRLF
+			FROM #use_columns
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -387,8 +458,8 @@ BEGIN
 
 			SELECT @sql = @sql + 'SELECT' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '%2.[' + #columns.name + '],' + @CRLF
-			FROM #columns
+			SELECT @sql = @sql + @TAB + '%2.[' + #use_columns.name + '],' + @CRLF
+			FROM #use_columns
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -460,11 +531,11 @@ BEGIN
 
 			SET @i = 0
 			SELECT
-				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + #columns.name + '] = %2.[' + #columns.name + '],' + @CRLF,
+				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + #use_columns.name + '] = %2.[' + #use_columns.name + '],' + @CRLF,
 				@i = @i + 1
-			FROM #columns
+			FROM #use_columns
 			LEFT OUTER JOIN #identity_columns
-			ON #columns.column_id = #identity_columns.column_id
+			ON #use_columns.column_id = #identity_columns.column_id
 			WHERE #identity_columns.column_id IS NULL
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
@@ -475,13 +546,13 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-					'[ours].[' + #columns.name + '] IS NULL AND [theirs].[' + #columns.name + '] IS NOT NULL' + @CRLF +
-					'   OR [ours].[' + #columns.name + '] IS NOT NULL AND [theirs].[' + #columns.name + '] IS NULL' + @CRLF +
-					'   OR [ours].[' + #columns.name + '] <> [theirs].[' + #columns.name + ']' + @CRLF,
+					'[ours].[' + #use_columns.name + '] IS NULL AND [theirs].[' + #use_columns.name + '] IS NOT NULL' + @CRLF +
+					'   OR [ours].[' + #use_columns.name + '] IS NOT NULL AND [theirs].[' + #use_columns.name + '] IS NULL' + @CRLF +
+					'   OR [ours].[' + #use_columns.name + '] <> [theirs].[' + #use_columns.name + ']' + @CRLF,
 				@i = @i + 1
-			FROM #columns
+			FROM #use_columns
 			LEFT OUTER JOIN #key_columns
-			ON #columns.column_id = #key_columns.column_id
+			ON #use_columns.column_id = #key_columns.column_id
 			WHERE #key_columns.column_id IS NULL
 
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
@@ -507,12 +578,12 @@ BEGIN
 	SET @sql = 'SELECT '
 
 	SET @sql = @sql + '''OURS >>>'' AS [ ],' + @CRLF
-	SELECT @sql = @sql + @TAB + '   [ours].[' + #columns.name + '],' + @CRLF
-	FROM #columns
+	SELECT @sql = @sql + @TAB + '   [ours].[' + #local_columns.name + '],' + @CRLF
+	FROM #local_columns
 
 	SET @sql = @sql + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
-	SELECT @sql = @sql + @TAB + '   [theirs].[' + #columns.name + '],' + @CRLF
-	FROM #columns
+	SELECT @sql = @sql + @TAB + '   [theirs].[' + #remote_columns.name + '],' + @CRLF
+	FROM #remote_columns
 
 	SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -529,12 +600,12 @@ BEGIN
 
 	SELECT
 		@sql = @sql +
-			'   OR [ours].[' + #columns.name + '] IS NULL AND [theirs].[' + #columns.name + '] IS NOT NULL' + @CRLF +
-			'   OR [ours].[' + #columns.name + '] IS NOT NULL AND [theirs].[' + #columns.name + '] IS NULL' + @CRLF +
-			'   OR [ours].[' + #columns.name + '] <> [theirs].[' + #columns.name + ']' + @CRLF
-	FROM #columns
+			'   OR [ours].[' + #use_columns.name + '] IS NULL AND [theirs].[' + #use_columns.name + '] IS NOT NULL' + @CRLF +
+			'   OR [ours].[' + #use_columns.name + '] IS NOT NULL AND [theirs].[' + #use_columns.name + '] IS NULL' + @CRLF +
+			'   OR [ours].[' + #use_columns.name + '] <> [theirs].[' + #use_columns.name + ']' + @CRLF
+	FROM #use_columns
 	LEFT OUTER JOIN #key_columns
-	ON #columns.column_id = #key_columns.column_id
+	ON #use_columns.column_id = #key_columns.column_id
 	WHERE #key_columns.column_id IS NULL
 
 	--PRINT @sql + @CRLF
