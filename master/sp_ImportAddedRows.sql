@@ -2,9 +2,6 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-IF EXISTS(SELECT * FROM sys.objects WHERE schema_id = 1 AND type = 'P' AND name = 'sp_ImportAddedRows')
-	DROP PROCEDURE sp_ImportAddedRows
-GO
 CREATE PROCEDURE sp_ImportAddedRows
 	@our_table_name sysname,
 	@their_table_name sysname,

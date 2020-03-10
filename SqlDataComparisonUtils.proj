@@ -5,6 +5,7 @@
     <OutputPath>build\</OutputPath>
     <OutputInstallScript>Install.sql</OutputInstallScript>
     <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
+    <OutputCleanMasterScript>CleanMaster.sql</OutputCleanMasterScript>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -47,7 +48,7 @@ With support for:
   </Target>
 
   <ItemGroup>
-    <InstallMasterFiles Include="UseMaster.sql;master\*.sql"/>
+    <InstallMasterFiles Include="UseMaster.sql;clean_master\*.sql;master\*.sql"/>
   </ItemGroup>
 
   <Target Name="CreateInstallMaster" Inputs="@(InstallMasterFiles)" Outputs="$(OutputPath)$(OutputInstallMasterScript)">
@@ -61,8 +62,23 @@ With support for:
     <WriteLinesToFile File="$(OutputPath)$(OutputInstallMasterScript)" Lines="@(InstallMasterFileContents)" Overwrite="true" />
   </Target>
 
+  <ItemGroup>
+    <CleanMasterFiles Include="UseMaster.sql;clean_master\*.sql"/>
+  </ItemGroup>
+
+  <Target Name="CreateCleanMaster" Inputs="@(CleanMasterFiles)" Outputs="$(OutputPath)$(OutputCleanMasterScript)">
+    <ItemGroup>
+      <CleanMasterFileContents Include="PRINT N'%(CleanMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(CleanMasterFiles.Identity)))"/>
+    </ItemGroup>
+    <ItemGroup>
+      <CleanMasterFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(OutputPath)$(OutputCleanMasterScript)" Lines="@(CleanMasterFileContents)" Overwrite="true" />
+  </Target>
+
   <!-- Concatenate scripts on Build. -->
-  <Target Name="Build"  DependsOnTargets="CreateInstall;CreateInstallMaster" />
+  <Target Name="Build"  DependsOnTargets="CreateInstall;CreateInstallMaster;CreateCleanMaster" />
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />

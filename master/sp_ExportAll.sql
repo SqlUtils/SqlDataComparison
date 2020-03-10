@@ -2,9 +2,6 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-IF EXISTS(SELECT * FROM sys.objects WHERE schema_id = 1 AND type = 'P' AND name = 'sp_ExportAll')
-	DROP PROCEDURE sp_ExportAll
-GO
 CREATE PROCEDURE sp_ExportAll
 	@our_table_name sysname,
 	@their_table_name sysname,
