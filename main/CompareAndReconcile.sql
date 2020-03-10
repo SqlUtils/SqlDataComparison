@@ -5,6 +5,7 @@ GO
 CREATE PROCEDURE [internals].[CompareAndReconcile]
 	@our_table_name sysname,
 	@their_table_name sysname,
+	@default_db_name sysname = null,
 	@use_columns nvarchar(max) = null,
 	@join_columns nvarchar(max) = null,
 	@map_columns nvarchar(max) = null,
@@ -39,6 +40,7 @@ BEGIN
 
 	EXEC internals.ValidateQualifiedTableName
 		@qualified_table_name = @our_table_name,
+		@default_db_name = @default_db_name,
 		@server = @our_server OUTPUT,
 		@database = @our_database OUTPUT,
 		@schema = @our_schema OUTPUT,
@@ -59,7 +61,8 @@ BEGIN
 	DECLARE @remote_database_part sysname
 	DECLARE @remote_full_table_name sysname
 
-	EXEC internals.ValidateQualifiedTableName
+		-- do not use default table name for theirs (it's more confusing that not if db.table is used instead of db..table by mistake)
+		EXEC internals.ValidateQualifiedTableName
 		@qualified_table_name = @their_table_name,
 		@server = @their_server OUTPUT,
 		@database = @their_database OUTPUT,

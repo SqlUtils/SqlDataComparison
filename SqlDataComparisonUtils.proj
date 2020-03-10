@@ -1,21 +1,33 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <!-- https://stackoverflow.com/questions/15858710/how-concatenate-files-in-msbuild-and-preserve-tabs-and-spaces -->
   <Target Name="ConcatenateScripts">
-    <!-- List all the files you want to concatenate. -->
+    <!-- Install.sql -->
     <ItemGroup>
-      <ConcatFiles Include="CreateSqlUtilsDb.sql;types\*.sql;internals\*.sql;main\*.sql;dbo\*.sql"/>
+      <InstallFiles Include="CreateSqlUtilsDb.sql;types\*.sql;internals\*.sql;main\*.sql;dbo\*.sql"/>
     </ItemGroup>
 
-    <!-- Read the contents of the files (preserving tabs/spaces). -->
     <ItemGroup>
-      <FileContents Include="PRINT N'%(ConcatFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(ConcatFiles.Identity)))"/>
+      <InstallFileContents Include="PRINT N'%(InstallFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallFiles.Identity)))"/>
     </ItemGroup>
     <ItemGroup>
-      <FileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
+      <InstallFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
     </ItemGroup>
 
-    <!-- Write the result to a single file. -->
-    <WriteLinesToFile File="build\Install.sql" Lines="@(FileContents)" Overwrite="true" />
+    <WriteLinesToFile File="build\Install.sql" Lines="@(InstallFileContents)" Overwrite="true" />
+
+    <!-- InstallMaster.sql -->
+    <ItemGroup>
+      <InstallMasterFiles Include="UseMaster.sql;master\*.sql"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <InstallMasterFileContents Include="PRINT N'%(InstallMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallMasterFiles.Identity)))"/>
+    </ItemGroup>
+    <ItemGroup>
+      <InstallMasterFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
+    </ItemGroup>
+
+    <WriteLinesToFile File="build\InstallMaster.sql" Lines="@(InstallMasterFileContents)" Overwrite="true" />
   </Target>
 
   <!-- Concatenate scripts on Build. -->
