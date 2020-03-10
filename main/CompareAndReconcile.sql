@@ -389,7 +389,7 @@ BEGIN
 		-- there can only be one
 		DECLARE @identity_columns internals.ColumnsTable
 
-		-- only need to work with identity columns for add and change, not deletes
+		-- only need to work with identity columns for adds and changes, not deletes
 		IF @added_rows = 1 OR @changed_rows = 1
 		BEGIN
 			SET @params =
@@ -436,8 +436,10 @@ BEGIN
 
 			SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '[' + name + '],' + @CRLF
-			FROM @use_columns_table
+			SELECT @sql = @sql + @TAB + '[' + CASE WHEN @import > 0 THEN uc.name ELSE m.name END + '],' + @CRLF
+			FROM @use_columns_table uc
+			INNER JOIN @mapped_columns m
+			ON uc.column_id = m.column_id
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -445,8 +447,10 @@ BEGIN
 
 			SELECT @sql = @sql + 'SELECT' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '%2.[' + name + '],' + @CRLF
-			FROM @use_columns_table
+			SELECT @sql = @sql + @TAB + '%2.[' + CASE WHEN @import > 0 THEN m.name ELSE uc.name END + '],' + @CRLF
+			FROM @use_columns_table uc
+			INNER JOIN @mapped_columns m
+			ON uc.column_id = m.column_id
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -522,9 +526,11 @@ BEGIN
 
 			SET @i = 0
 			SELECT
-				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + uc.name + '] = %2.[' + uc.name + '],' + @CRLF,
+				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + CASE WHEN @import > 0 THEN uc.name ELSE m.name END + '] = %2.[' + CASE WHEN @import > 0 THEN m.name ELSE uc.name END + '],' + @CRLF,
 				@i = @i + 1
 			FROM @use_columns_table uc
+			INNER JOIN @mapped_columns m
+			ON uc.column_id = m.column_id
 			LEFT OUTER JOIN @identity_columns ic
 			ON uc.column_id = ic.column_id
 			WHERE ic.column_id IS NULL
