@@ -1,12 +1,12 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <AssemblyName>Mighty.SqlUtils.DataComparison</AssemblyName>
+    <AssemblyName>SqlDataComparisonUtils</AssemblyName>
     <OutputPath>build\</OutputPath>
     <OutputInstallScript>Install.sql</OutputInstallScript>
     <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
     <OutputCleanMasterScript>CleanMaster.sql</OutputCleanMasterScript>
-    <LicenseFile>LICENSE</LicenseFile>
+    <LicenseFile>license.template</LicenseFile>
     <LicenseReplaceString>[[LICENSE]]</LicenseReplaceString>
   </PropertyGroup>
 
@@ -28,14 +28,14 @@ With support for:
 * Automatic (primary key based) or manual join columns spec
 </Description>
     <Copyright>Copyright (c) 2020 Mike Beaton</Copyright>
-    <PackageProjectUrl>https://github.com/MikeBeaton/SqlDataComparisonUtils</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/MikeBeaton/SqlDataComparisonUtils/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/MightyOrm/SqlDataComparisonUtils</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/MightyOrm/SqlDataComparisonUtils/blob/master/LICENSE</PackageLicenseUrl>
     <PackageOutputPath>pack</PackageOutputPath>
   </PropertyGroup>
 
   <Target Name="ReadLicense">
     <ItemGroup>
-      <LicenseFileContents Include="%0d%0a$([System.IO.File]::ReadAllText($(LicenseFile)))%0d%0a"/>
+      <LicenseFileContents Include="%0d%0a$([System.IO.File]::ReadAllText($(LicenseFile)).Replace([[PackageId]],$(PackageId)).Replace([[Version]],$(Version)).Replace([[PackageProjectUrl]],$(PackageProjectUrl)))%0d%0a"/>
     </ItemGroup>
     <PropertyGroup>
       <License>@(LicenseFileContents)</License>
