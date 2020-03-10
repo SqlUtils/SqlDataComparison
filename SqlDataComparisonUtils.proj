@@ -56,6 +56,8 @@ With support for:
     </ItemGroup>
 
     <WriteLinesToFile File="$(OutputPath)$(OutputInstallScript)" Lines="@(InstallFileContents)" Overwrite="true" />
+
+    <Message Text="Created $(OutputPath)$(OutputInstallScript)"/>
   </Target>
 
   <ItemGroup>
@@ -71,6 +73,8 @@ With support for:
     </ItemGroup>
 
     <WriteLinesToFile File="$(OutputPath)$(OutputInstallMasterScript)" Lines="@(InstallMasterFileContents)" Overwrite="true" />
+
+    <Message Text="Created $(OutputPath)$(OutputInstallMasterScript)"/>
   </Target>
 
   <ItemGroup>
@@ -86,6 +90,8 @@ With support for:
     </ItemGroup>
 
     <WriteLinesToFile File="$(OutputPath)$(OutputCleanMasterScript)" Lines="@(CleanMasterFileContents)" Overwrite="true" />
+
+    <Message Text="Created $(OutputPath)$(OutputCleanMasterScript)"/>
   </Target>
 
   <!-- Concatenate scripts on Build. -->
