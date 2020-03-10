@@ -359,14 +359,14 @@ BEGIN
 	/*
 	 * CREATE THE COMMON JOIN SQL
 	 */
-	DECLARE @JOIN NVARCHAR(MAX)
+	DECLARE @join_sql NVARCHAR(MAX)
 
-	SELECT @JOIN = 'FROM ' + @local_full_table_name + ' [ours]' + @CRLF
-	SELECT @JOIN = @JOIN + '%0 JOIN ' + @remote_full_table_name + ' [theirs]' + @CRLF
+	SELECT @join_sql = 'FROM ' + @local_full_table_name + ' [ours]' + @CRLF
+	SELECT @join_sql = @join_sql + '%0 JOIN ' + @remote_full_table_name + ' [theirs]' + @CRLF
 
 	SET @i = 0
 	SELECT
-		@JOIN = @JOIN + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].[' + kc.name + '] = [theirs].[' + m.name + ']' + @CRLF,
+		@join_sql = @join_sql + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].[' + kc.name + '] = [theirs].[' + m.name + ']' + @CRLF,
 		@i = @i + 1
 	FROM @key_columns kc
 	INNER JOIN @mapped_columns m
@@ -454,7 +454,7 @@ BEGIN
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-			SELECT @sql = @sql + REPLACE(@JOIN, '%0', 'FULL OUTER')
+			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
 			SET @i = 0
 			SELECT
@@ -490,7 +490,7 @@ BEGIN
 
 			SET @sql = 'DELETE %1' + @CRLF
 
-			SELECT @sql = @sql + REPLACE(@JOIN, '%0', 'FULL OUTER')
+			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
 			SET @i = 0
 			SELECT
@@ -537,7 +537,7 @@ BEGIN
 
 			SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-			SELECT @sql = @sql + REPLACE(@JOIN, '%0', 'INNER')
+			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'INNER')
 
 			SET @i = 0
 			SELECT
@@ -586,7 +586,7 @@ BEGIN
 
 	SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
-	SELECT @sql = @sql + REPLACE(@JOIN, '%0', 'FULL OUTER')
+	SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
 	SET @i = 0
 	SELECT
