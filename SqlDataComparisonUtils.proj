@@ -1,11 +1,41 @@
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <!-- https://stackoverflow.com/questions/15858710/how-concatenate-files-in-msbuild-and-preserve-tabs-and-spaces -->
-  <Target Name="ConcatenateScripts">
-    <!-- Install.sql -->
-    <ItemGroup>
-      <InstallFiles Include="CreateSqlUtilsDb.sql;types\*.sql;internals\*.sql;main\*.sql;dbo\*.sql"/>
-    </ItemGroup>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
+  <PropertyGroup>
+    <AssemblyName>Mighty.SqlUtils.DataComparison</AssemblyName>
+    <OutputPath>build\</OutputPath>
+    <OutputInstallScript>Install.sql</OutputInstallScript>
+    <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AssemblyName>Mighty.SqlUtils.DataComparison</AssemblyName>
+    <Version>0.3.0</Version>
+    <Authors>Mike Beaton</Authors>
+    <PackageTags>SQL Server;SQL;data compare;data comparison</PackageTags>
+    <Description>Pure SQL data comparison and reconciliation utility.
+
+* `sp_comparedata 'MyTable', 'RemoteDb..MyTable'`
+* `sp_exportall 'MyTable', 'RemoteDb..MyTable'`
+* etc.
+
+With support for:
+
+* Column name remapping
+* Columns filter
+* Automatic (primary key based) or manual join columns spec
+</Description>
+    <Copyright>Copyright (c) 2020 Mike Beaton</Copyright>
+    <PackageProjectUrl>https://github.com/MikeBeaton/SqlDataComparisonUtils</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/MikeBeaton/SqlDataComparisonUtils/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageOutputPath>pack</PackageOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InstallFiles Include="CreateSqlUtilsDb.sql;types\*.sql;internals\*.sql;main\*.sql;dbo\*.sql"/>
+  </ItemGroup>
+
+  <!-- Concatenate files https://stackoverflow.com/a/29557615/795690 -->
+  <Target Name="CreateInstall" Inputs="@(InstallFiles)" Outputs="$(OutputPath)$(OutputInstallScript)">
     <ItemGroup>
       <InstallFileContents Include="PRINT N'%(InstallFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallFiles.Identity)))"/>
     </ItemGroup>
@@ -13,13 +43,14 @@
       <InstallFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
     </ItemGroup>
 
-    <WriteLinesToFile File="build\Install.sql" Lines="@(InstallFileContents)" Overwrite="true" />
+    <WriteLinesToFile File="$(OutputPath)$(OutputInstallScript)" Lines="@(InstallFileContents)" Overwrite="true" />
+  </Target>
 
-    <!-- InstallMaster.sql -->
-    <ItemGroup>
-      <InstallMasterFiles Include="UseMaster.sql;master\*.sql"/>
-    </ItemGroup>
+  <ItemGroup>
+    <InstallMasterFiles Include="UseMaster.sql;master\*.sql"/>
+  </ItemGroup>
 
+  <Target Name="CreateInstallMaster" Inputs="@(InstallMasterFiles)" Outputs="$(OutputPath)$(OutputInstallMasterScript)">
     <ItemGroup>
       <InstallMasterFileContents Include="PRINT N'%(InstallMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallMasterFiles.Identity)))"/>
     </ItemGroup>
@@ -27,11 +58,16 @@
       <InstallMasterFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
     </ItemGroup>
 
-    <WriteLinesToFile File="build\InstallMaster.sql" Lines="@(InstallMasterFileContents)" Overwrite="true" />
+    <WriteLinesToFile File="$(OutputPath)$(OutputInstallMasterScript)" Lines="@(InstallMasterFileContents)" Overwrite="true" />
   </Target>
 
   <!-- Concatenate scripts on Build. -->
-  <Target Name="Build">
-    <CallTarget Targets="ConcatenateScripts"/>
+  <Target Name="Build"  DependsOnTargets="CreateInstall;CreateInstallMaster" />
+
+  <Target Name="Clean">
+    <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />
   </Target>
+
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build" />
+
 </Project>
