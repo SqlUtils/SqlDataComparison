@@ -226,6 +226,14 @@ BEGIN
 		INSERT INTO #column_mapping
 		SELECT [name], rename
 		FROM internals.SplitColumnMap(@map)
+		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+
+		IF @error <> 0
+		BEGIN
+			RAISERROR('*** Illegal data found in @map ''%s'' (use ''our_col1,their_col1;our_col2,their_col2'', quoting column names using [...] if necessary)', 16, 1, @map)
+			GOTO complete
+		END
+
 
 		-- validate mapping source columns
 		DECLARE @map_source internals.ColumnsTable
