@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE FUNCTION [internals].[SplitColumnRenames] (
-	@columnRenames NVARCHAR(MAX)
-) RETURNS @columnRenamesTable TABLE (name sysname not null, rename sysname not null)
+CREATE FUNCTION [internals].[SplitColumnMap] (
+	@map_columns NVARCHAR(MAX)
+) RETURNS @column_mapping TABLE (name sysname not null, rename sysname not null)
 AS
 BEGIN
 	DECLARE @index int
@@ -23,10 +23,10 @@ BEGIN
 
 	WHILE @done = 0
 	BEGIN
-		SET @index = CHARINDEX(';', @columnRenames)
-		IF (@index < 1) SELECT @index = LEN(@columnRenames) + 1, @done = 1
+		SET @index = CHARINDEX(';', @map_columns)
+		IF (@index < 1) SELECT @index = LEN(@map_columns) + 1, @done = 1
 
-		SELECT @columnPair = LTRIM(RTRIM(SUBSTRING(@columnRenames, 1, @index - 1)))
+		SELECT @columnPair = LTRIM(RTRIM(SUBSTRING(@map_columns, 1, @index - 1)))
 
 		SET @innerIndex = CHARINDEX(',', @columnPair)
 		IF @innerIndex < 1
@@ -58,9 +58,9 @@ BEGIN
 				SET @to = NULL
 		END
 
-		INSERT INTO @columnRenamesTable SELECT @from, @to
+		INSERT INTO @column_mapping SELECT @from, @to
 
-		IF @done = 0 SET @columnRenames = SUBSTRING(@columnRenames, @index + 1, LEN(@columnRenames))
+		IF @done = 0 SET @map_columns = SUBSTRING(@map_columns, @index + 1, LEN(@map_columns))
 	END
 
 	RETURN

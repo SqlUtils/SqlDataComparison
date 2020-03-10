@@ -170,7 +170,7 @@ BEGIN
 	END
 
 	/*
-	 * Confirm that all columns to be used exist remotely
+	 * Collect remote columns
 	 */
 	DECLARE @remote_columns internals.ColumnsTable
 
@@ -199,9 +199,84 @@ BEGIN
 		GOTO complete
 	END
 
+	/*
+	 * Validate and process column name remapping
+	 */
+	-- NB @mapped_columns contains local column id with mapped remote column name
+	DECLARE @mapped_columns internals.ColumnsTable
+
+	IF @map_columns IS NULL
+	BEGIN
+		INSERT INTO @mapped_columns (column_id, name)
+		SELECT column_id, name
+		FROM @local_columns
+	END
+	ELSE
+	BEGIN
+		CREATE TABLE #column_mapping
+		(
+			[name] sysname,
+			rename sysname
+		)
+
+		INSERT INTO #column_mapping
+		SELECT [name], rename
+		FROM internals.SplitColumnMap(@map_columns)
+
+		-- validate mapping source columns
+		DECLARE @map_source internals.ColumnsTable
+
+		INSERT INTO @map_source (name)
+		SELECT name
+		FROM #column_mapping
+
+		EXEC internals.ValidateColumns
+			@map_source, @local_columns,
+			'''', '''',
+			'Source column name %s specified in @map_columns does not exist in %s',
+			'Source column names %s specified in @map_columns do not exist in %s',
+			@local_full_table_name
+		IF @@ERROR <> 0 GOTO complete
+
+		-- validate mapping target columns
+		DECLARE @map_target internals.ColumnsTable
+
+		INSERT INTO @map_target (name)
+		SELECT rename
+		FROM #column_mapping
+
+		EXEC internals.ValidateColumns
+			@map_target, @remote_columns,
+			'''', '''',
+			'Target column name %s specified in @map_columns does not exist in %s',
+			'Target column names %s specified in @map_columns do not exist in %s',
+			@remote_full_table_name
+		IF @@ERROR <> 0 GOTO complete
+
+		-- we already know that mapped columns do map, so we can safely convert to the canoncial remote name here
+		INSERT INTO @mapped_columns (column_id, name)
+		SELECT lc.column_id, ISNULL(rc.name, lc.name)
+		FROM @local_columns lc
+		LEFT OUTER JOIN #column_mapping m
+		ON lc.name = m.name
+		LEFT OUTER JOIN @remote_columns rc
+		ON m.rename = rc.name
+	END
+
+	/*
+	 * Confirm that all columns to be used exist remotely
+	 */
+	DECLARE @mapped_use_columns internals.ColumnsTable
+
+	INSERT INTO @mapped_use_columns (name)
+	SELECT m.name
+	FROM @use_columns_table u
+	INNER JOIN @mapped_columns m
+	ON u.column_id = m.column_id
+
 	EXEC internals.ValidateColumns
-		@use_columns_table, @remote_columns,
-		'[', ']', 
+		@mapped_use_columns, @remote_columns,
+		'[', ']', -- use [] to quote these names, as we know they exist locally
 		'Required column %s does not exist in %s',
 		'Required columns %s do not exist in %s',
 		@remote_full_table_name
@@ -288,9 +363,11 @@ BEGIN
 
 	SET @i = 0
 	SELECT
-		@JOIN = @JOIN + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].[' + kc.name + '] = [theirs].[' + kc.name + ']' + @CRLF,
+		@JOIN = @JOIN + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].[' + kc.name + '] = [theirs].[' + m.name + ']' + @CRLF,
 		@i = @i + 1
 	FROM @key_columns kc
+	INNER JOIN @mapped_columns m
+	ON kc.column_id = m.column_id
 
 	DECLARE @lower NVARCHAR(MAX)
 	DECLARE @Upper NVARCHAR(MAX)
@@ -376,9 +453,11 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '  AND ' END +
-					'%1.[' + name + '] IS NULL' + @CRLF,
+					'%1.[' + CASE WHEN @import > 0 THEN kc.name ELSE m.name END + '] IS NULL' + @CRLF,
 				@i = @i + 1
-			FROM @key_columns
+			FROM @key_columns kc
+			INNER JOIN @mapped_columns m
+			ON kc.column_id = m.column_id
 
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
@@ -410,9 +489,11 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-					'%1.[' + name + '] IS NOT NULL AND %2.[' + name + '] IS NULL' + @CRLF,
+					'%1.[' + CASE WHEN @import > 0 THEN kc.name ELSE m.name END + '] IS NOT NULL AND %2.[' + CASE WHEN @import > 0 THEN m.name ELSE kc.name END + '] IS NULL' + @CRLF,
 				@i = @i + 1
-			FROM @key_columns
+			FROM @key_columns kc
+			INNER JOIN @mapped_columns m
+			ON kc.column_id = m.column_id
 
 			SET @sql = REPLACE(REPLACE(@sql, '%1', @to), '%2', @from);
 
@@ -453,11 +534,13 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-					'[ours].[' + uc.name + '] IS NULL AND [theirs].[' + uc.name + '] IS NOT NULL' + @CRLF +
-					'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + uc.name + '] IS NULL' + @CRLF +
-					'   OR [ours].[' + uc.name + '] <> [theirs].[' + uc.name + ']' + @CRLF,
+					'[ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL' + @CRLF +
+					'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL' + @CRLF +
+					'   OR [ours].[' + uc.name + '] <> [theirs].[' + m.name + ']' + @CRLF,
 				@i = @i + 1
 			FROM @use_columns_table uc
+			INNER JOIN @mapped_columns m
+			ON uc.column_id = m.column_id
 			LEFT OUTER JOIN @key_columns kc
 			ON uc.column_id = kc.column_id
 			WHERE kc.column_id IS NULL
@@ -500,17 +583,21 @@ BEGIN
 	SELECT
 		@sql = @sql +
 			CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-			'[ours].[' + name + '] IS NULL AND [theirs].[' + name + '] IS NOT NULL' + @CRLF +
-			'   OR [ours].[' + name + '] IS NOT NULL AND [theirs].[' + name + '] IS NULL' + @CRLF,
+			'[ours].[' + kc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL' + @CRLF +
+			'   OR [ours].[' + kc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL' + @CRLF,
 		@i = @i + 1
-	FROM @key_columns
+	FROM @key_columns kc
+	INNER JOIN @mapped_columns m
+	ON kc.column_id = m.column_id
 
 	SELECT
 		@sql = @sql +
-			'   OR [ours].[' + uc.name + '] IS NULL AND [theirs].[' + uc.name + '] IS NOT NULL' + @CRLF +
-			'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + uc.name + '] IS NULL' + @CRLF +
-			'   OR [ours].[' + uc.name + '] <> [theirs].[' + uc.name + ']' + @CRLF
+			'   OR [ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL' + @CRLF +
+			'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL' + @CRLF +
+			'   OR [ours].[' + uc.name + '] <> [theirs].[' + m.name + ']' + @CRLF
 	FROM @use_columns_table uc
+	INNER JOIN @mapped_columns m
+	ON uc.column_id = m.column_id
 	LEFT OUTER JOIN @key_columns kc
 	ON uc.column_id = kc.column_id
 	WHERE kc.column_id IS NULL
