@@ -2,6 +2,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+/*[[LICENSE]]*/
 CREATE PROCEDURE internals.ValidateColumns
 	@test_columns internals.ColumnsTable READONLY,
 	@allowed_columns internals.ColumnsTable READONLY,

@@ -2,6 +2,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+/*[[LICENSE]]*/
 CREATE PROCEDURE [internals].[CompareAndReconcile]
 	@our_table_name sysname,
 	@their_table_name sysname,

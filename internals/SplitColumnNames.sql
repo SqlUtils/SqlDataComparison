@@ -2,6 +2,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+/*[[LICENSE]]*/
 CREATE FUNCTION [internals].[SplitColumnNames] (
 	@columnNames NVARCHAR(MAX)
 ) RETURNS @columnNamesTable TABLE (name sysname not null)

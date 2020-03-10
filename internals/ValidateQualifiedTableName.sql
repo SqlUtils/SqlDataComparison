@@ -2,6 +2,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+/*[[LICENSE]]*/
 CREATE PROCEDURE [internals].[ValidateQualifiedTableName]
 	@qualified_table_name sysname,
 	@default_db_name sysname = NULL,

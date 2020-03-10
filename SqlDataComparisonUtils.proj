@@ -6,10 +6,12 @@
     <OutputInstallScript>Install.sql</OutputInstallScript>
     <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
     <OutputCleanMasterScript>CleanMaster.sql</OutputCleanMasterScript>
+    <LicenseFile>LICENSE</LicenseFile>
+    <LicenseReplaceString>[[LICENSE]]</LicenseReplaceString>
   </PropertyGroup>
 
   <PropertyGroup>
-    <AssemblyName>Mighty.SqlUtils.DataComparison</AssemblyName>
+    <PackageId>Mighty.SqlUtils.DataComparison</PackageId>
     <Version>0.3.0</Version>
     <Authors>Mike Beaton</Authors>
     <PackageTags>SQL Server;SQL;data compare;data comparison</PackageTags>
@@ -31,6 +33,15 @@ With support for:
     <PackageOutputPath>pack</PackageOutputPath>
   </PropertyGroup>
 
+  <Target Name="ReadLicense">
+    <ItemGroup>
+      <LicenseFileContents Include="%0d%0a$([System.IO.File]::ReadAllText($(LicenseFile)))%0d%0a"/>
+    </ItemGroup>
+    <PropertyGroup>
+      <License>@(LicenseFileContents)</License>
+    </PropertyGroup>
+  </Target>
+
   <ItemGroup>
     <InstallFiles Include="CreateSqlUtilsDb.sql;types\*.sql;internals\*.sql;main\*.sql;dbo\*.sql"/>
   </ItemGroup>
@@ -38,7 +49,7 @@ With support for:
   <!-- Concatenate files https://stackoverflow.com/a/29557615/795690 -->
   <Target Name="CreateInstall" Inputs="@(InstallFiles)" Outputs="$(OutputPath)$(OutputInstallScript)">
     <ItemGroup>
-      <InstallFileContents Include="PRINT N'%(InstallFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallFiles.Identity)))"/>
+      <InstallFileContents Include="PRINT N'%(InstallFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
     <ItemGroup>
       <InstallFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
@@ -53,7 +64,7 @@ With support for:
 
   <Target Name="CreateInstallMaster" Inputs="@(InstallMasterFiles)" Outputs="$(OutputPath)$(OutputInstallMasterScript)">
     <ItemGroup>
-      <InstallMasterFileContents Include="PRINT N'%(InstallMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallMasterFiles.Identity)))"/>
+      <InstallMasterFileContents Include="PRINT N'%(InstallMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallMasterFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
     <ItemGroup>
       <InstallMasterFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
@@ -78,7 +89,7 @@ With support for:
   </Target>
 
   <!-- Concatenate scripts on Build. -->
-  <Target Name="Build"  DependsOnTargets="CreateInstall;CreateInstallMaster;CreateCleanMaster" />
+  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster" />
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />
