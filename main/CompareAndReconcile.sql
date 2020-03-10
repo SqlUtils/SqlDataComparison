@@ -6,9 +6,9 @@ CREATE PROCEDURE [internals].[CompareAndReconcile]
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@default_db_name sysname = null,
-	@use_columns nvarchar(max) = null,
-	@join_columns nvarchar(max) = null,
-	@map_columns nvarchar(max) = null,
+	@map nvarchar(max) = null,
+	@join nvarchar(max) = null,
+	@use nvarchar(max) = null,
 	@import int = null, -- > 0 means import; < 0 means export
 	@added_rows bit = null,
 	@deleted_rows bit = null,
@@ -134,40 +134,40 @@ BEGIN
 	END
 
 	/*
-	 * Validate @use_columns
+	 * Validate @use
 	 */
-	DECLARE @use_columns_table internals.ColumnsTable
+	DECLARE @use_columns internals.ColumnsTable
 
-	IF @use_columns IS NULL
+	IF @use IS NULL
 	BEGIN
-		INSERT INTO @use_columns_table (column_id, name)
+		INSERT INTO @use_columns (column_id, name)
 		SELECT column_id, name
 		FROM @local_columns
 	END
 	ELSE
 	BEGIN
-		INSERT INTO @use_columns_table (name)
-		SELECT name FROM internals.SplitColumnNames(@use_columns)
+		INSERT INTO @use_columns (name)
+		SELECT name FROM internals.SplitColumnNames(@use)
 		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
 		IF @error <> 0
 		BEGIN
-			RAISERROR('*** Illegal or missing column names found in @use_columns ''%s'' (quote column names using [...] if necessary)', 16, 1, @use_columns)
+			RAISERROR('*** Illegal or missing column names found in @use ''%s'' (quote column names using [...] if necessary)', 16, 1, @use)
 			GOTO complete
 		END
 
 		EXEC internals.ValidateColumns
-			@use_columns_table, @local_columns,
+			@use_columns, @local_columns,
 			'''', '''', 
-			'Column name %s specified in @use_columns does not exist in %s',
-			'Column names %s specified in @use_columns do not exist in %s',
+			'Column name %s specified in @use does not exist in %s',
+			'Column names %s specified in @use do not exist in %s',
 			@local_full_table_name
 		IF @@ERROR <> 0 GOTO complete
 
-		-- fill out @use_columns_table and give canonical name
+		-- fill out @use_columns and give canonical name
 		UPDATE uc
 		SET column_id = c.column_id, name = c.name
-		FROM @use_columns_table uc
+		FROM @use_columns uc
 		INNER JOIN @local_columns c
 		ON uc.name = c.name
 	END
@@ -208,7 +208,7 @@ BEGIN
 	-- NB @mapped_columns contains local column id with mapped remote column name
 	DECLARE @mapped_columns internals.ColumnsTable
 
-	IF @map_columns IS NULL
+	IF @map IS NULL
 	BEGIN
 		INSERT INTO @mapped_columns (column_id, name)
 		SELECT column_id, name
@@ -224,7 +224,7 @@ BEGIN
 
 		INSERT INTO #column_mapping
 		SELECT [name], rename
-		FROM internals.SplitColumnMap(@map_columns)
+		FROM internals.SplitColumnMap(@map)
 
 		-- validate mapping source columns
 		DECLARE @map_source internals.ColumnsTable
@@ -236,8 +236,8 @@ BEGIN
 		EXEC internals.ValidateColumns
 			@map_source, @local_columns,
 			'''', '''',
-			'Source column name %s specified in @map_columns does not exist in %s',
-			'Source column names %s specified in @map_columns do not exist in %s',
+			'Source column name %s specified in @map does not exist in %s',
+			'Source column names %s specified in @map do not exist in %s',
 			@local_full_table_name
 		IF @@ERROR <> 0 GOTO complete
 
@@ -251,8 +251,8 @@ BEGIN
 		EXEC internals.ValidateColumns
 			@map_target, @remote_columns,
 			'''', '''',
-			'Target column name %s specified in @map_columns does not exist in %s',
-			'Target column names %s specified in @map_columns do not exist in %s',
+			'Target column name %s specified in @map does not exist in %s',
+			'Target column names %s specified in @map do not exist in %s',
 			@remote_full_table_name
 		IF @@ERROR <> 0 GOTO complete
 
@@ -273,7 +273,7 @@ BEGIN
 
 	INSERT INTO @mapped_use_columns (name)
 	SELECT m.name
-	FROM @use_columns_table u
+	FROM @use_columns u
 	INNER JOIN @mapped_columns m
 	ON u.column_id = m.column_id
 
@@ -291,34 +291,34 @@ BEGIN
 	DECLARE @key_columns internals.ColumnsTable
 
 	/*
-	 * Use @join_columns for join instead of table primary keys, if provided
+	 * Use @join for join instead of table primary keys, if provided
 	 */
-	IF @join_columns IS NOT NULL
+	IF @join IS NOT NULL
 	BEGIN
-		DECLARE @join_columns_table internals.ColumnsTable
+		DECLARE @join_columns internals.ColumnsTable
 
-		INSERT INTO @join_columns_table (name)
-		SELECT name FROM internals.SplitColumnNames(@join_columns)
+		INSERT INTO @join_columns (name)
+		SELECT name FROM internals.SplitColumnNames(@join)
 		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
 		IF @error <> 0
 		BEGIN
-			RAISERROR('*** Illegal or missing column names found in @join_columns ''%s'' (quote column names using [...] if necessary)', 16, 1, @join_columns)
+			RAISERROR('*** Illegal or missing column names found in @join ''%s'' (quote column names using [...] if necessary)', 16, 1, @join)
 			GOTO complete
 		END
 
 		EXEC internals.ValidateColumns
-			@join_columns_table, @use_columns_table,
+			@join_columns, @use_columns,
 			'''', '''',
-			'Column name %s specified in @join_columns does not exist in %s',
-			'Column names %s specified in @join_columns do not exist in %s',
+			'Column name %s specified in @join does not exist in %s',
+			'Column names %s specified in @join do not exist in %s',
 			@local_full_table_name
 		IF @@ERROR <> 0 GOTO complete
 
 		INSERT INTO @key_columns (column_id, name)
 		SELECT c.column_id, c.name
-		FROM @use_columns_table c
-		INNER JOIN @join_columns_table jc
+		FROM @use_columns c
+		INNER JOIN @join_columns jc
 		ON c.name = jc.name
 	END
 	ELSE
@@ -351,7 +351,7 @@ BEGIN
 
 		IF @rowcount = 0
 		BEGIN
-			RAISERROR('There are no primary keys for table %s. One or more primary keys or a @join_columns parameter are required to join the tables to be compared.', 16, 1, @local_full_table_name)
+			RAISERROR('There are no primary keys for table %s. One or more primary keys or a @join parameter are required to join the tables to be compared.', 16, 1, @local_full_table_name)
 			GOTO complete
 		END
 	END
@@ -437,7 +437,7 @@ BEGIN
 			SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
 
 			SELECT @sql = @sql + @TAB + '[' + CASE WHEN @import > 0 THEN uc.name ELSE m.name END + '],' + @CRLF
-			FROM @use_columns_table uc
+			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
 			ON uc.column_id = m.column_id
 
@@ -448,7 +448,7 @@ BEGIN
 			SELECT @sql = @sql + 'SELECT' + @CRLF
 
 			SELECT @sql = @sql + @TAB + '%2.[' + CASE WHEN @import > 0 THEN m.name ELSE uc.name END + '],' + @CRLF
-			FROM @use_columns_table uc
+			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
 			ON uc.column_id = m.column_id
 
@@ -528,7 +528,7 @@ BEGIN
 			SELECT
 				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + CASE WHEN @import > 0 THEN uc.name ELSE m.name END + '] = %2.[' + CASE WHEN @import > 0 THEN m.name ELSE uc.name END + '],' + @CRLF,
 				@i = @i + 1
-			FROM @use_columns_table uc
+			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
 			ON uc.column_id = m.column_id
 			LEFT OUTER JOIN @identity_columns ic
@@ -547,7 +547,7 @@ BEGIN
 					'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL' + @CRLF +
 					'   OR [ours].[' + uc.name + '] <> [theirs].[' + m.name + ']' + @CRLF,
 				@i = @i + 1
-			FROM @use_columns_table uc
+			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
 			ON uc.column_id = m.column_id
 			LEFT OUTER JOIN @key_columns kc
@@ -604,7 +604,7 @@ BEGIN
 			'   OR [ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL' + @CRLF +
 			'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL' + @CRLF +
 			'   OR [ours].[' + uc.name + '] <> [theirs].[' + m.name + ']' + @CRLF
-	FROM @use_columns_table uc
+	FROM @use_columns uc
 	INNER JOIN @mapped_columns m
 	ON uc.column_id = m.column_id
 	LEFT OUTER JOIN @key_columns kc

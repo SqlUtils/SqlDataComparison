@@ -8,9 +8,9 @@ GO
 CREATE PROCEDURE sp_CompareData
 	@our_table_name sysname,
 	@their_table_name sysname,
-	@use_columns nvarchar(max) = null,
-	@join_columns nvarchar(max) = null,
-	@map_columns nvarchar(max) = null
+	@map nvarchar(max) = null,
+	@join nvarchar(max) = null,
+	@use nvarchar(max) = null
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -21,8 +21,8 @@ BEGIN
 		@default_db_name = @default_db_name,
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
-		@use_columns = @use_columns,
-		@join_columns = @join_columns,
-		@map_columns = @map_columns
+		@map = @map,
+		@join = @join,
+		@use = @use
 END
 GO
