@@ -61,8 +61,8 @@ BEGIN
 	DECLARE @remote_database_part sysname
 	DECLARE @remote_full_table_name sysname
 
-		-- do not use default table name for theirs (it's more confusing that not if db.table is used instead of db..table by mistake)
-		EXEC internals.ValidateQualifiedTableName
+	-- do not use default table name for theirs (it's more confusing that not if db.table is used instead of db..table by mistake)
+	EXEC internals.ValidateQualifiedTableName
 		@qualified_table_name = @their_table_name,
 		@server = @their_server OUTPUT,
 		@database = @their_database OUTPUT,
