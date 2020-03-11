@@ -234,7 +234,6 @@ BEGIN
 			GOTO complete
 		END
 
-
 		-- validate mapping source columns
 		DECLARE @map_source internals.ColumnsTable
 
