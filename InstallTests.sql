@@ -2,7 +2,7 @@
  * TEST DATABASE A
  */
 
-USE master
+USE tempdb;
 GO
 
 IF EXISTS(select * from sys.databases where name='SqlUtilsTests_A')
@@ -35,7 +35,7 @@ GO
  * TEST DATABASE B
  */
 
-USE master
+USE tempdb;
 GO
 
 IF EXISTS(select * from sys.databases where name='SqlUtilsTests_B')
@@ -68,7 +68,7 @@ GO
  * TEST DATABASE C
  */
 
-USE master
+USE tempdb;
 GO
 
 IF EXISTS(select * from sys.databases where name='SqlUtilsTests_C')

@@ -1,4 +1,4 @@
-USE master
+USE tempdb;
 GO
 
 IF EXISTS(select * from sys.databases where name='SqlUtils')

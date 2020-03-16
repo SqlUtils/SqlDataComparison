@@ -1,2 +1,2 @@
-USE master
+USE master;
 GO
