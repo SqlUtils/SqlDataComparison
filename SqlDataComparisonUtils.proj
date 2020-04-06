@@ -44,7 +44,7 @@ With support for:
   </Target>
 
   <ItemGroup>
-    <InstallFiles Include="$(SourcePath)CreateSqlUtilsDb.sql;$(SourcePath)types\*.sql;$(SourcePath)internals\*.sql;$(SourcePath)main\*.sql;$(SourcePath)main\*.sql"/>
+    <InstallFiles Include="$(SourcePath)CreateSqlUtilsDb.sql;$(SourcePath)types\*.sql;$(SourcePath)internals\*.sql;$(SourcePath)core\*.sql;$(SourcePath)main\*.sql"/>
   </ItemGroup>
 
   <!-- Concatenate files https://stackoverflow.com/a/29557615/795690 -->

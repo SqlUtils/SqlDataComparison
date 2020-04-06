@@ -16,3 +16,6 @@ GO
 
 CREATE SCHEMA internals
 GO
+
+CREATE SCHEMA core
+GO
