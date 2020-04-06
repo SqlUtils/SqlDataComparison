@@ -8,7 +8,8 @@ CREATE PROCEDURE [dbo].[CompareData]
 	@their_table_name sysname,
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
-	@use nvarchar(max) = null
+	@use nvarchar(max) = null,
+	@interleave bit = 1
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -18,6 +19,7 @@ BEGIN
 		@their_table_name = @their_table_name,
 		@map = @map,
 		@join = @join,
-		@use = @use
+		@use = @use,
+		@interleave = @interleave
 END
 GO

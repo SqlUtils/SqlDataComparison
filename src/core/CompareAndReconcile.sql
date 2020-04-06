@@ -13,7 +13,8 @@ CREATE PROCEDURE [core].[CompareAndReconcile]
 	@import int = null, -- > 0 means import; < 0 means export
 	@added_rows bit = null,
 	@deleted_rows bit = null,
-	@changed_rows bit = null
+	@changed_rows bit = null,
+	@interleave bit = 1
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -584,13 +585,27 @@ BEGIN
 
 	SET @sql = 'SELECT '
 
-	SET @sql = @sql + '''OURS >>>'' AS [ ],' + @CRLF
-	SELECT @sql = @sql + @TAB + '   [ours].[' + name + '],' + @CRLF
-	FROM @local_columns
+	IF @interleave = 1
+	BEGIN
+		SELECT @sql = @sql +
+			@TAB + '   [ours].[' + u.name + '] AS [<<< ' + u.name + '],' + @CRLF +
+			@TAB + '   [theirs].[' + m.name + '] AS [>>> ' + m.name + '],' + @CRLF
+		FROM @use_columns u
+		INNER JOIN @mapped_columns m
+		ON u.column_id = m.column_id
+	END
+	ELSE
+	BEGIN
+		SET @sql = @sql + '''OURS <<<'' AS [ ],' + @CRLF
 
-	SET @sql = @sql + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
-	SELECT @sql = @sql + @TAB + '   [theirs].[' + name + '],' + @CRLF
-	FROM @remote_columns
+		SELECT @sql = @sql + @TAB + '   [ours].[' + name + '],' + @CRLF
+		FROM @local_columns
+
+		SET @sql = @sql + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
+
+		SELECT @sql = @sql + @TAB + '   [theirs].[' + name + '],' + @CRLF
+		FROM @remote_columns
+	END
 
 	SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
 
@@ -624,9 +639,9 @@ BEGIN
 	EXEC (@sql)
 
 	IF @@ROWCOUNT > 0
-		RAISERROR('Data differences found between OURS >>> %s and THEIRS >>> %s.%s - Switch to results window to view differences.%s - Call [Import|Export][AddedRows|DeletedRows|ChangedRows|All] (e.g. ImportAddedRows) with the same arguments to transfer changes.%s', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
+		RAISERROR('Data differences found between OURS <<< %s and THEIRS >>> %s.%s - Switch to results window to view differences.%s - Call [Import|Export][AddedRows|DeletedRows|ChangedRows|All] (e.g. ImportAddedRows) with the same arguments to transfer changes.%s', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
 	ELSE
-		RAISERROR('%sNo data differences found between OURS >>> %s and THEIRS >>> %s.', 0, 1, @CRLF, @local_full_table_name, @remote_full_table_name)
+		RAISERROR('%sNo data differences found between OURS <<< %s and THEIRS >>> %s.', 0, 1, @CRLF, @local_full_table_name, @remote_full_table_name)
 
 complete:
 END
