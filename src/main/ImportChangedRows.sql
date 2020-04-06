@@ -13,7 +13,7 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	EXEC internals.CompareAndReconcile
+	EXEC core.CompareAndReconcile
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
 		@map = @map,

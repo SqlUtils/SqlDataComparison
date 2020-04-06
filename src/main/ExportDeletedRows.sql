@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE sp_ExportAddedRows
+CREATE PROCEDURE [dbo].[ExportDeletedRows]
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@map nvarchar(max) = null,
@@ -13,16 +13,13 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	DECLARE @default_db_name sysname = DB_NAME()
-
-	EXEC SqlUtils.internals.CompareAndReconcile
-		@default_db_name = @default_db_name,
+	EXEC core.CompareAndReconcile
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
 		@map = @map,
 		@join = @join,
 		@use = @use,
 		@import = -1,
-		@added_rows = 1
+		@deleted_rows = 1
 END
 GO

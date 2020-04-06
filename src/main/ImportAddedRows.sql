@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE sp_ImportAddedRows
+CREATE PROCEDURE [dbo].[ImportAddedRows]
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@map nvarchar(max) = null,
@@ -13,10 +13,7 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	DECLARE @default_db_name sysname = DB_NAME()
-
-	EXEC SqlUtils.internals.CompareAndReconcile
-		@default_db_name = @default_db_name,
+	EXEC core.CompareAndReconcile
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
 		@map = @map,

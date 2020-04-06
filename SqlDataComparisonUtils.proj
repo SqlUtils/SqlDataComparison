@@ -6,7 +6,8 @@
     <OutputInstallScript>Install.sql</OutputInstallScript>
     <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
     <OutputCleanMasterScript>CleanMaster.sql</OutputCleanMasterScript>
-    <LicenseFile>license.template</LicenseFile>
+    <SourcePath>src\</SourcePath>
+    <LicenseFile>publish.license.template</LicenseFile>
     <LicenseReplaceString>[[LICENSE]]</LicenseReplaceString>
   </PropertyGroup>
 
@@ -35,7 +36,7 @@ With support for:
 
   <Target Name="ReadLicense">
     <ItemGroup>
-      <LicenseFileContents Include="%0d%0a$([System.IO.File]::ReadAllText($(LicenseFile)).Replace([[PackageId]],$(PackageId)).Replace([[Version]],$(Version)).Replace([[PackageProjectUrl]],$(PackageProjectUrl)))%0d%0a"/>
+      <LicenseFileContents Include="%0d%0a$([System.IO.File]::ReadAllText($(SourcePath)$(LicenseFile)).Replace([[PackageId]],$(PackageId)).Replace([[Version]],$(Version)).Replace([[PackageProjectUrl]],$(PackageProjectUrl)))%0d%0a"/>
     </ItemGroup>
     <PropertyGroup>
       <License>@(LicenseFileContents)</License>
@@ -43,7 +44,7 @@ With support for:
   </Target>
 
   <ItemGroup>
-    <InstallFiles Include="CreateSqlUtilsDb.sql;types\*.sql;internals\*.sql;main\*.sql;dbo\*.sql"/>
+    <InstallFiles Include="$(SourcePath)CreateSqlUtilsDb.sql;$(SourcePath)types\*.sql;$(SourcePath)internals\*.sql;$(SourcePath)main\*.sql;$(SourcePath)main\*.sql"/>
   </ItemGroup>
 
   <!-- Concatenate files https://stackoverflow.com/a/29557615/795690 -->
@@ -61,7 +62,7 @@ With support for:
   </Target>
 
   <ItemGroup>
-    <InstallMasterFiles Include="UseMaster.sql;clean_master\*.sql;master\*.sql"/>
+    <InstallMasterFiles Include="$(SourcePath)master\use\UseMaster.sql;$(SourcePath)master\clean\*.sql;$(SourcePath)master\*.sql"/>
   </ItemGroup>
 
   <Target Name="CreateInstallMaster" Inputs="@(InstallMasterFiles)" Outputs="$(OutputPath)$(OutputInstallMasterScript)">
@@ -78,7 +79,7 @@ With support for:
   </Target>
 
   <ItemGroup>
-    <CleanMasterFiles Include="UseMaster.sql;clean_master\*.sql"/>
+    <CleanMasterFiles Include="$(SourcePath)master\use\UseMaster.sql;$(SourcePath)master\clean\*.sql"/>
   </ItemGroup>
 
   <Target Name="CreateCleanMaster" Inputs="@(CleanMasterFiles)" Outputs="$(OutputPath)$(OutputCleanMasterScript)">

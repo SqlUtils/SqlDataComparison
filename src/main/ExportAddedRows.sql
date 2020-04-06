@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE [dbo].[CompareData]
+CREATE PROCEDURE [dbo].[ExportAddedRows]
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@map nvarchar(max) = null,
@@ -13,11 +13,13 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	EXEC internals.CompareAndReconcile
+	EXEC core.CompareAndReconcile
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
 		@map = @map,
 		@join = @join,
-		@use = @use
+		@use = @use,
+		@import = -1,
+		@added_rows = 1
 END
 GO
