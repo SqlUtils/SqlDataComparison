@@ -16,7 +16,7 @@
     <Version>0.3.1</Version>
     <Authors>Mike Beaton</Authors>
     <PackageTags>SQL Server;SQL;compare data;data comparison</PackageTags>
-    <Description>Pure SQL data comparison and reconciliation utility.
+    <Description>Pure SQL data comparison and reconciliation utility:
 
 * `sp_comparedata 'MyTable', 'RemoteDb..MyTable'`
 * `sp_exportall 'MyTable', 'RemoteDb..MyTable'`
