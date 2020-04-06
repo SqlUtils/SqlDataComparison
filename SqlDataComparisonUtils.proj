@@ -13,9 +13,9 @@
 
   <PropertyGroup>
     <PackageId>Mighty.SqlUtils.DataComparison</PackageId>
-    <Version>0.3.0</Version>
+    <Version>0.3.1</Version>
     <Authors>Mike Beaton</Authors>
-    <PackageTags>SQL Server;SQL;data compare;data comparison</PackageTags>
+    <PackageTags>SQL Server;SQL;compare data;data comparison</PackageTags>
     <Description>Pure SQL data comparison and reconciliation utility.
 
 * `sp_comparedata 'MyTable', 'RemoteDb..MyTable'`
