@@ -1,7 +1,7 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <AssemblyName>SqlDataComparisonUtils</AssemblyName>
+    <AssemblyName>SqlDataComparison</AssemblyName>
     <OutputPath>build\</OutputPath>
     <OutputInstallScript>Install.sql</OutputInstallScript>
     <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <PackageId>Mighty.SqlUtils.DataComparison</PackageId>
+    <PackageId>Mighty.SqlDataComparison</PackageId>
     <Version>0.3.1</Version>
     <Authors>Mike Beaton</Authors>
     <PackageTags>SQL Server;SQL;compare data;data comparison</PackageTags>
@@ -29,8 +29,8 @@ With support for:
 * Automatic (primary key based) or manual join columns spec
 </Description>
     <Copyright>Copyright (c) 2020 Mike Beaton</Copyright>
-    <PackageProjectUrl>https://github.com/MightyOrm/SqlDataComparisonUtils</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/MightyOrm/SqlDataComparisonUtils/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/MightyOrm/SqlDataComparison</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/MightyOrm/SqlDataComparison/blob/master/LICENSE</PackageLicenseUrl>
     <PackageOutputPath>pack</PackageOutputPath>
   </PropertyGroup>
 
