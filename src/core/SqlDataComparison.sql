@@ -527,7 +527,7 @@ BEGIN
 		/*
 		 * CHANGED ROWS
 		 */
-		IF @deleted_rows = 1
+		IF @changed_rows = 1
 		BEGIN
 			RAISERROR('%s%sing changed rows...', 0, 1, @CRLF, @Upper)
 
