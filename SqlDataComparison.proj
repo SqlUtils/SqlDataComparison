@@ -7,6 +7,7 @@
     <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
     <OutputCleanMasterScript>CleanMaster.sql</OutputCleanMasterScript>
     <OutputInstallTestsScript>InstallTests.sql</OutputInstallTestsScript>
+    <OutputRecreateTestDbsScript>RecreateTestDbs.sql</OutputRecreateTestDbsScript>
     <SourcePath>src\</SourcePath>
     <TestsPath>tests\</TestsPath>
     <LicenseFile>publish.license.template</LicenseFile>
@@ -98,7 +99,7 @@ With support for:
   </Target>
 
   <ItemGroup>
-    <InstallTestsFiles Include="$(TestsPath)DropTestDbs.sql;$(TestsPath)CreateTestDbs.sql;$(TestsPath)SetClrEnabled.sql;\OpenSource\tSQLt_V1.0.5873.27393\tSQLt.class.sql"/>
+    <InstallTestsFiles Include="$(TestsPath)tsqlt\SetClrEnabled.sql;\OpenSource\tSQLt_V1.0.5873.27393\tSQLt.class.sql;$(TestsPath)test-dbs\RecreateTestDbs.sql;$(TestsPath)*.sql"/>
   </ItemGroup>
 
   <Target Name="CreateInstallTests" Inputs="@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTestsScript)">
@@ -114,8 +115,25 @@ With support for:
     <Message Text="Created $(OutputPath)$(OutputInstallTestsScript)"/>
   </Target>
 
+  <ItemGroup>
+    <RecreateTestDbsFiles Include="$(TestsPath)test-dbs\RecreateTestDbs.sql;"/>
+  </ItemGroup>
+
+  <Target Name="CreateRecreateTestDbs" Inputs="@(RecreateTestDbsFiles)" Outputs="$(OutputPath)$(OutputRecreateTestDbsScript)">
+    <ItemGroup>
+      <RecreateTestDbsFileContents Include="PRINT N'%(RecreateTestDbsFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(RecreateTestDbsFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
+    </ItemGroup>
+    <ItemGroup>
+      <RecreateTestDbsFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(OutputPath)$(OutputRecreateTestDbsScript)" Lines="@(RecreateTestDbsFileContents)" Overwrite="true" />
+
+    <Message Text="Created $(OutputPath)$(OutputRecreateTestDbsScript)"/>
+  </Target>
+
   <!-- Main build target -->
-  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTests" />
+  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTests;CreateRecreateTestDbs" />
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />
