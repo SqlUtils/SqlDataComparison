@@ -6,7 +6,9 @@
     <OutputInstallScript>Install.sql</OutputInstallScript>
     <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
     <OutputCleanMasterScript>CleanMaster.sql</OutputCleanMasterScript>
+    <OutputInstallTestsScript>InstallTests.sql</OutputInstallTestsScript>
     <SourcePath>src\</SourcePath>
+    <TestsPath>tests\</TestsPath>
     <LicenseFile>publish.license.template</LicenseFile>
     <LicenseReplaceString>[[LICENSE]]</LicenseReplaceString>
   </PropertyGroup>
@@ -95,8 +97,25 @@ With support for:
     <Message Text="Created $(OutputPath)$(OutputCleanMasterScript)"/>
   </Target>
 
-  <!-- Concatenate scripts on Build. -->
-  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster" />
+  <ItemGroup>
+    <InstallTestsFiles Include="$(TestsPath)DropTestDbs.sql;$(TestsPath)CreateTestDbs.sql;$(TestsPath)SetClrEnabled.sql;\OpenSource\tSQLt_V1.0.5873.27393\tSQLt.class.sql"/>
+  </ItemGroup>
+
+  <Target Name="CreateInstallTests" Inputs="@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTestsScript)">
+    <ItemGroup>
+      <InstallTestsFileContents Include="PRINT N'%(InstallTestsFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallTestsFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
+    </ItemGroup>
+    <ItemGroup>
+      <InstallTestsFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(OutputPath)$(OutputInstallTestsScript)" Lines="@(InstallTestsFileContents)" Overwrite="true" />
+
+    <Message Text="Created $(OutputPath)$(OutputInstallTestsScript)"/>
+  </Target>
+
+  <!-- Main build target -->
+  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTests" />
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />

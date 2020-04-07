@@ -1,0 +1,8 @@
+EXEC sp_configure 'clr enabled', 1;
+RECONFIGURE;
+PRINT 'RECONFIGURE complete.'
+GO
+ALTER DATABASE SqlUtils SET TRUSTWORTHY ON;
+GO
+USE SqlUtils;
+GO
