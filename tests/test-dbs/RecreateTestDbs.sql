@@ -93,3 +93,13 @@ INSERT INTO AddressMatch ( ID, [Type] )
 VALUES (1, 'Home'), (2, 'Term'), (3, 'Work'), (4, 'Other')
 
 GO
+
+CREATE TABLE AddressTypes (
+    AddressTypeID INT IDENTITY(1, 1),
+    AddressType NVARCHAR(50)
+)
+
+INSERT INTO AddressTypes ( AddressType )
+VALUES ('Home'), ('Term'), ('Work')
+
+GO
