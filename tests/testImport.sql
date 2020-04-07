@@ -1,10 +1,10 @@
 USE SqlUtils
 GO
 
-EXEC tSQLt.NewTestClass 'testImportTests';
+EXEC tSQLt.NewTestClass 'testImport';
 GO
 
-CREATE PROCEDURE testImportTests.[test importing deleted rows b->a does nothing]
+CREATE PROCEDURE testImport.[test importing deleted rows b->a does nothing]
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
@@ -28,7 +28,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE testImportTests.[test importing changed rows b->a does nothing]
+CREATE PROCEDURE testImport.[test importing changed rows b->a does nothing]
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
@@ -52,16 +52,11 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE testImportTests.[test importing added rows b->a adds them]
+CREATE PROCEDURE testImport.[test importing added rows b->a adds them]
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 
-	/*
-	BEGIN TRANSACTION
-	EXEC CompareData 'SqlUtilsTests_A..AddressTypes', 'SqlUtilsTests_B..AddressTypes'
-	COMMIT TRANSACTION
-	*/
 	EXEC tSQLt.CaptureOutput 'EXEC ImportAddedRows ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_B..AddressTypes'''
 
 	SELECT CAST (
@@ -78,6 +73,3 @@ BEGIN
 	EXEC tSQLt.AssertEqualsTable 'SqlUtilsTests_B..AddressTypes', 'SqlUtilsTests_A..AddressTypes'
 END
 GO
-
--- EXEC tSQLt.Run 'testImportTests'
--- GO

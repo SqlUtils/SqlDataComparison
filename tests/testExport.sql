@@ -1,10 +1,10 @@
 USE SqlUtils
 GO
 
-EXEC tSQLt.NewTestClass 'testExportTests';
+EXEC tSQLt.NewTestClass 'testExport';
 GO
 
-CREATE PROCEDURE testExportTests.[test exporting added rows a->b does nothing]
+CREATE PROCEDURE testExport.[test exporting added rows a->b does nothing]
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
@@ -28,7 +28,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE testExportTests.[test exporting changed rows a->b does nothing]
+CREATE PROCEDURE testExport.[test exporting changed rows a->b does nothing]
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
@@ -52,16 +52,11 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE testExportTests.[test exporting deleted rows a->b deletes them]
+CREATE PROCEDURE testExport.[test exporting deleted rows a->b deletes them]
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 
-	/*
-	BEGIN TRANSACTION
-	EXEC CompareData 'SqlUtilsTests_A..AddressTypes', 'SqlUtilsTests_B..AddressTypes'
-	COMMIT TRANSACTION
-	*/
 	EXEC tSQLt.CaptureOutput 'EXEC ExportDeletedRows ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_B..AddressTypes'''
 
 	SELECT CAST (
@@ -78,6 +73,3 @@ BEGIN
 	EXEC tSQLt.AssertEqualsTable 'SqlUtilsTests_A..AddressTypes', 'SqlUtilsTests_B..AddressTypes'
 END
 GO
-
--- EXEC tSQLt.Run 'testExportTests'
--- GO
