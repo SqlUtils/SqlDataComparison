@@ -9,7 +9,7 @@ CREATE PROCEDURE [dbo].[ExportAll]
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
-	@interleave bit = 1
+	@interleave bit = 0
 AS
 BEGIN
 	SET NOCOUNT ON;

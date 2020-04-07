@@ -14,4 +14,4 @@ With support for:
 
 Build with `msbuild` or `dotnet build`, clean with `msbuild -target:clean` or `dotnet build -target:clean`.
 
-When viewing data differences interleaved results (`@interleave = 1`, the default) make it more easy to see differences but will only show used and mapped columns; non-interleaved results (`@interleave = 0`) will show all columns from both tables, even if they are not in the used and mapped set.
+When viewing data differences interleaved results (`@interleave = 1`) make it more easy to see column-by-column differences, but can only show used and mapped columns and may make it harder to see which whole rows are going to be affected by data reconciliation commands; non-interleaved results (`@interleave = 0`, the default) will show all columns from both tables, even if they are not in the used and mapped set, and may make it easier to see which rows will be affected by data reconciliation commands.
