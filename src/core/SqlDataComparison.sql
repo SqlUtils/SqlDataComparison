@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE [core].[CompareAndReconcile]
+CREATE PROCEDURE [core].[SqlDataComparison]
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@default_db_name sysname = null,

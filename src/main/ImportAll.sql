@@ -14,7 +14,7 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	EXEC core.CompareAndReconcile
+	EXEC core.SqlDataComparison
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
 		@map = @map,
