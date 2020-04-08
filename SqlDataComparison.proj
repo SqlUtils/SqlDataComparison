@@ -3,11 +3,10 @@
   <PropertyGroup>
     <AssemblyName>SqlDataComparison</AssemblyName>
     <OutputPath>build\</OutputPath>
-    <OutputInstallScript>Install.sql</OutputInstallScript>
-    <OutputInstallMasterScript>InstallMaster.sql</OutputInstallMasterScript>
-    <OutputCleanMasterScript>CleanMaster.sql</OutputCleanMasterScript>
-    <OutputInstallTestsScript>InstallTests.sql</OutputInstallTestsScript>
-    <OutputRecreateTestDbsScript>RecreateTestDbs.sql</OutputRecreateTestDbsScript>
+    <OutputInstall>Install.sql</OutputInstall>
+    <OutputInstallMaster>InstallMaster.sql</OutputInstallMaster>
+    <OutputCleanMaster>CleanMaster.sql</OutputCleanMaster>
+    <OutputInstallTests>InstallTests.sql</OutputInstallTests>
     <SourcePath>src\</SourcePath>
     <TestsPath>tests\</TestsPath>
     <LicenseFile>publish.license.template</LicenseFile>
@@ -51,7 +50,7 @@ With support for:
   </ItemGroup>
 
   <!-- Concatenate files https://stackoverflow.com/a/29557615/795690 -->
-  <Target Name="CreateInstall" Inputs="@(InstallFiles)" Outputs="$(OutputPath)$(OutputInstallScript)">
+  <Target Name="CreateInstall" Inputs="@(InstallFiles)" Outputs="$(OutputPath)$(OutputInstall)">
     <ItemGroup>
       <InstallFileContents Include="PRINT N'%(InstallFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -59,16 +58,16 @@ With support for:
       <InstallFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
     </ItemGroup>
 
-    <WriteLinesToFile File="$(OutputPath)$(OutputInstallScript)" Lines="@(InstallFileContents)" Overwrite="true" />
+    <WriteLinesToFile File="$(OutputPath)$(OutputInstall)" Lines="@(InstallFileContents)" Overwrite="true" />
 
-    <Message Text="Created $(OutputPath)$(OutputInstallScript)"/>
+    <Message Text="Created $(OutputPath)$(OutputInstall)"/>
   </Target>
 
   <ItemGroup>
     <InstallMasterFiles Include="$(SourcePath)master\use\UseMaster.sql;$(SourcePath)master\clean\*.sql;$(SourcePath)master\*.sql"/>
   </ItemGroup>
 
-  <Target Name="CreateInstallMaster" Inputs="@(InstallMasterFiles)" Outputs="$(OutputPath)$(OutputInstallMasterScript)">
+  <Target Name="CreateInstallMaster" Inputs="@(InstallMasterFiles)" Outputs="$(OutputPath)$(OutputInstallMaster)">
     <ItemGroup>
       <InstallMasterFileContents Include="PRINT N'%(InstallMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallMasterFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -76,16 +75,16 @@ With support for:
       <InstallMasterFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
     </ItemGroup>
 
-    <WriteLinesToFile File="$(OutputPath)$(OutputInstallMasterScript)" Lines="@(InstallMasterFileContents)" Overwrite="true" />
+    <WriteLinesToFile File="$(OutputPath)$(OutputInstallMaster)" Lines="@(InstallMasterFileContents)" Overwrite="true" />
 
-    <Message Text="Created $(OutputPath)$(OutputInstallMasterScript)"/>
+    <Message Text="Created $(OutputPath)$(OutputInstallMaster)"/>
   </Target>
 
   <ItemGroup>
     <CleanMasterFiles Include="$(SourcePath)master\use\UseMaster.sql;$(SourcePath)master\clean\*.sql"/>
   </ItemGroup>
 
-  <Target Name="CreateCleanMaster" Inputs="@(CleanMasterFiles)" Outputs="$(OutputPath)$(OutputCleanMasterScript)">
+  <Target Name="CreateCleanMaster" Inputs="@(CleanMasterFiles)" Outputs="$(OutputPath)$(OutputCleanMaster)">
     <ItemGroup>
       <CleanMasterFileContents Include="PRINT N'%(CleanMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(CleanMasterFiles.Identity)))"/>
     </ItemGroup>
@@ -93,16 +92,16 @@ With support for:
       <CleanMasterFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
     </ItemGroup>
 
-    <WriteLinesToFile File="$(OutputPath)$(OutputCleanMasterScript)" Lines="@(CleanMasterFileContents)" Overwrite="true" />
+    <WriteLinesToFile File="$(OutputPath)$(OutputCleanMaster)" Lines="@(CleanMasterFileContents)" Overwrite="true" />
 
-    <Message Text="Created $(OutputPath)$(OutputCleanMasterScript)"/>
+    <Message Text="Created $(OutputPath)$(OutputCleanMaster)"/>
   </Target>
 
   <ItemGroup>
-    <InstallTestsFiles Include="$(TestsPath)tsqlt\SetClrEnabled.sql;\OpenSource\tSQLt_V1.0.5873.27393\tSQLt.class.sql;$(TestsPath)test-dbs\RecreateTestDbs.sql;$(TestsPath)*.sql"/>
+    <InstallTestsFiles Include="$(TestsPath)tsqlt\SetClrEnabled.sql;\OpenSource\tSQLt_V1.0.5873.27393\tSQLt.class.sql;$(TestsPath)test-dbs\RecreateTestDatabases.sql;$(TestsPath)test-dbs\RecreateTestTables.sql;$(TestsPath)*.sql"/>
   </ItemGroup>
 
-  <Target Name="CreateInstallTests" Inputs="@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTestsScript)">
+  <Target Name="CreateInstallTests" Inputs="@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTests)">
     <ItemGroup>
       <InstallTestsFileContents Include="PRINT N'%(InstallTestsFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallTestsFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -110,30 +109,13 @@ With support for:
       <InstallTestsFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
     </ItemGroup>
 
-    <WriteLinesToFile File="$(OutputPath)$(OutputInstallTestsScript)" Lines="@(InstallTestsFileContents)" Overwrite="true" />
+    <WriteLinesToFile File="$(OutputPath)$(OutputInstallTests)" Lines="@(InstallTestsFileContents)" Overwrite="true" />
 
-    <Message Text="Created $(OutputPath)$(OutputInstallTestsScript)"/>
-  </Target>
-
-  <ItemGroup>
-    <RecreateTestDbsFiles Include="$(TestsPath)test-dbs\RecreateTestDbs.sql;"/>
-  </ItemGroup>
-
-  <Target Name="CreateRecreateTestDbs" Inputs="@(RecreateTestDbsFiles)" Outputs="$(OutputPath)$(OutputRecreateTestDbsScript)">
-    <ItemGroup>
-      <RecreateTestDbsFileContents Include="PRINT N'%(RecreateTestDbsFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(RecreateTestDbsFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
-    </ItemGroup>
-    <ItemGroup>
-      <RecreateTestDbsFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
-    </ItemGroup>
-
-    <WriteLinesToFile File="$(OutputPath)$(OutputRecreateTestDbsScript)" Lines="@(RecreateTestDbsFileContents)" Overwrite="true" />
-
-    <Message Text="Created $(OutputPath)$(OutputRecreateTestDbsScript)"/>
+    <Message Text="Created $(OutputPath)$(OutputInstallTests)"/>
   </Target>
 
   <!-- Main build target -->
-  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTests;CreateRecreateTestDbs" />
+  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTests;" />
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />
