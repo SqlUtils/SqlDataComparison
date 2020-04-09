@@ -34,7 +34,8 @@ BEGIN
 
 		INSERT INTO @columnNamesTable SELECT @column
 
-		IF @done = 0 SET @columnNames = SUBSTRING(@columnNames, @index + 1, LEN(@columnNames))
+		IF @done = 0
+			SET @columnNames = SUBSTRING(@columnNames, @index + 1, LEN(@columnNames))
 	END
 
 	RETURN

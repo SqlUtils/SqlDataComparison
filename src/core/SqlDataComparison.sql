@@ -10,6 +10,7 @@ CREATE PROCEDURE [core].[SqlDataComparison]
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
+	@ids nvarchar(max) = null,
 	@where nvarchar(max) = null,
 	@import int = null, -- > 0 means import; < 0 means export
 	@added_rows bit = null,
@@ -377,6 +378,55 @@ BEGIN
 	END
 
 	/*
+	 * Confirm that the @ids param is valid, and convert to a where statement if it is
+	 */
+	DECLARE @idsWhere NVARCHAR(MAX)
+
+	IF @ids IS NOT NULL
+	BEGIN
+		IF (SELECT COUNT(*) FROM @key_columns) <> 1
+		BEGIN
+			RAISERROR('@ids parameter cannot be used when there is more than one primary key column, use @where parameter instead to specify which rows to process.', 16, 1)
+			GOTO complete
+		END
+
+		CREATE TABLE #ids (orderBy INT, id INT)
+
+		IF CHARINDEX('-', @ids) <> 0
+		BEGIN
+			INSERT INTO #ids (orderBy, id)
+			SELECT orderBy, id
+			FROM internals.splitIds(@ids, '-')
+
+			IF @@ROWCOUNT <> 2
+			BEGIN
+				RAISERROR('Invalid @ids parameter ''%s'', to specify a range pass in e.g. ''1-9''.', 16, 1, @ids)
+				GOTO complete
+			END
+
+			SELECT @i = 0, @idsWhere = ''
+			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[ours].' + kc.name + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
+			FROM #ids i
+			FULL OUTER JOIN @key_columns kc
+			ON 1 = 1
+			ORDER BY i.orderBy
+		END
+		ELSE
+		BEGIN
+			INSERT INTO #ids (orderBy, id)
+			SELECT orderBy, id
+			FROM internals.splitIds(@ids, ',')
+
+			SELECT @i = 0, @idsWhere = ''
+			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' OR ' END + '[ours].' + kc.name + ' = ' + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
+			FROM #ids i
+			FULL OUTER JOIN @key_columns kc
+			ON 1 = 1
+			ORDER BY i.orderBy
+		END
+	END
+
+	/*
 	 * CREATE THE COMMON JOIN SQL
 	 */
 	DECLARE @join_sql NVARCHAR(MAX)
@@ -476,9 +526,11 @@ BEGIN
 
 			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
-			SELECT @sql = @sql + 'WHERE '
+			SELECT @sql = @sql + 'WHERE (' + @CRLF
+			IF @idsWhere IS NOT NULL
+				SELECT @sql = @sql + '      ' + @idsWhere + @CRLF + ') AND (' + @CRLF
 			IF @where IS NOT NULL
-				SELECT @sql = @sql + '(' + @where + ') AND (' + @CRLF
+				SELECT @sql = @sql + '      ' + @where + @CRLF + ') AND (' + @CRLF
 
 			SET @i = 0
 			SELECT
@@ -490,8 +542,7 @@ BEGIN
 			INNER JOIN @mapped_columns m
 			ON kc.column_id = m.column_id
 
-			IF @where IS NOT NULL
-				SELECT @sql = @sql + ')' + @CRLF
+			SELECT @sql = @sql + ')' + @CRLF
 
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
@@ -519,9 +570,11 @@ BEGIN
 
 			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
-			SELECT @sql = @sql + 'WHERE '
+			SELECT @sql = @sql + 'WHERE (' + @CRLF
+			IF @idsWhere IS NOT NULL
+				SELECT @sql = @sql + '      ' + @idsWhere + @CRLF + ') AND (' + @CRLF
 			IF @where IS NOT NULL
-				SELECT @sql = @sql + '(' + @where + ') AND (' + @CRLF
+				SELECT @sql = @sql + '      ' + @where + @CRLF + ') AND (' + @CRLF
 
 			SET @i = 0
 			SELECT
@@ -533,8 +586,7 @@ BEGIN
 			INNER JOIN @mapped_columns m
 			ON kc.column_id = m.column_id
 
-			IF @where IS NOT NULL
-				SELECT @sql = @sql + ')' + @CRLF
+			SELECT @sql = @sql + ')' + @CRLF
 
 			SET @sql = REPLACE(REPLACE(@sql, '%1', @to), '%2', @from);
 
@@ -573,9 +625,11 @@ BEGIN
 
 			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'INNER')
 
-			SELECT @sql = @sql + 'WHERE '
+			SELECT @sql = @sql + 'WHERE (' + @CRLF
+			IF @idsWhere IS NOT NULL
+				SELECT @sql = @sql + '      ' + @idsWhere + @CRLF + ') AND (' + @CRLF
 			IF @where IS NOT NULL
-				SELECT @sql = @sql + '(' + @where + ') AND (' + @CRLF
+				SELECT @sql = @sql + '      ' + @where + @CRLF + ') AND (' + @CRLF
 
 			SET @i = 0
 			SELECT
@@ -592,8 +646,10 @@ BEGIN
 			ON uc.column_id = kc.column_id
 			WHERE kc.column_id IS NULL
 
-			IF @where IS NOT NULL
-				SELECT @sql = @sql + ')' + @CRLF
+			-- If all columns are key columns we need a dummy condition here
+			IF @@ROWCOUNT = 0 SET @SQL = @SQL + '      1 = 1 -- no non-join columns' + @CRLF
+
+			SELECT @sql = @sql + ')' + @CRLF
 
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
@@ -643,9 +699,11 @@ BEGIN
 
 	SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
-	SELECT @sql = @sql + 'WHERE '
+	SELECT @sql = @sql + 'WHERE (' + @CRLF
+	IF @idsWhere IS NOT NULL
+		SELECT @sql = @sql + '      ' + @idsWhere + @CRLF + ') AND (' + @CRLF
 	IF @where IS NOT NULL
-		SELECT @sql = @sql + '(' + @where + ') AND (' + @CRLF
+		SELECT @sql = @sql + '      ' + @where + @CRLF + ') AND (' + @CRLF
 
 	SET @i = 0
 	SELECT
@@ -670,8 +728,7 @@ BEGIN
 	ON uc.column_id = kc.column_id
 	WHERE kc.column_id IS NULL
 
-	IF @where IS NOT NULL
-		SELECT @sql = @sql + ')' + @CRLF
+	SELECT @sql = @sql + ')' + @CRLF
 
 	IF @show_sql = 1 PRINT @sql + @CRLF
 

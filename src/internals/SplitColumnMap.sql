@@ -61,7 +61,8 @@ BEGIN
 
 		INSERT INTO @column_mapping SELECT @from, @to
 
-		IF @done = 0 SET @map = SUBSTRING(@map, @index + 1, LEN(@map))
+		IF @done = 0
+			SET @map = SUBSTRING(@map, @index + 1, LEN(@map))
 	END
 
 	RETURN

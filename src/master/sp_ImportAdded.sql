@@ -9,6 +9,7 @@ CREATE PROCEDURE sp_ImportAdded
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
+	@ids nvarchar(max) = null,
 	@where nvarchar(max) = null,
 	@show_sql bit = null,
 	@interleave bit = null
@@ -25,6 +26,7 @@ BEGIN
 		@map = @map,
 		@join = @join,
 		@use = @use,
+		@ids = @ids,
 		@where = @where,
 		@show_sql = @show_sql,
 		@interleave = @interleave,
