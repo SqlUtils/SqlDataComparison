@@ -6,8 +6,8 @@
     <OutputInstall>Install.sql</OutputInstall>
     <OutputInstallMaster>InstallMaster.sql</OutputInstallMaster>
     <OutputCleanMaster>CleanMaster.sql</OutputCleanMaster>
-    <OutputInstallTSQLt>InstallTSQLt.sql</OutputInstallTSQLt>
-    <OutputInstallTests>InstallTests.sql</OutputInstallTests>
+    <OutputInstallTSQLt>tests\InstallTSQLt.sql</OutputInstallTSQLt>
+    <OutputInstallTests>tests\InstallTests.sql</OutputInstallTests>
     <SourcePath>src\</SourcePath>
     <TestsPath>tests\</TestsPath>
     <LicenseFile>publish.license.template</LicenseFile>
@@ -132,8 +132,18 @@ With support for:
     <Message Text="Created $(OutputPath)$(OutputInstallTests)"/>
   </Target>
 
+  <Target Name="AddReadme" Inputs="$(SourcePath)static\README.txt" Outputs="$(OutputPath)README.txt">
+    <ItemGroup>
+      <ReadmeContents Include="$([System.IO.File]::ReadAllText($(SourcePath)static\README.txt).Replace($(LicenseReplaceString),$(License)))"/>
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(OutputPath)README.txt" Lines="@(ReadmeContents)" Overwrite="true" />
+
+    <Message Text="Created $(OutputPath)README.txt"/>
+  </Target>
+
   <!-- Main build target -->
-  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;" />
+  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;AddReadme;" />
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />
