@@ -9,6 +9,8 @@ CREATE PROCEDURE [dbo].[ExportDeletedRows]
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
+	@where nvarchar(max) = null,
+	@show_sql bit = null,
 	@interleave bit = null
 AS
 BEGIN
@@ -20,6 +22,8 @@ BEGIN
 		@map = @map,
 		@join = @join,
 		@use = @use,
+		@where = @where,
+		@show_sql = @show_sql,
 		@interleave = @interleave,
 		@import = -1,
 		@deleted_rows = 1

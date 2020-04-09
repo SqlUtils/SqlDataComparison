@@ -10,10 +10,12 @@ CREATE PROCEDURE [core].[SqlDataComparison]
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
+	@where nvarchar(max) = null,
 	@import int = null, -- > 0 means import; < 0 means export
 	@added_rows bit = null,
 	@deleted_rows bit = null,
 	@changed_rows bit = null,
+	@show_sql bit = null,
 	@interleave bit = null
 AS
 BEGIN
@@ -395,7 +397,7 @@ BEGIN
 		-- determine whether there is an identity column (must check this on the target side side of the data transfer)
 		DECLARE @has_identity BIT = 0
 
-		-- there can only be one
+		-- we use a standard shape table, but there can only be one identity column
 		DECLARE @identity_columns internals.ColumnsTable
 
 		-- only need to work with identity columns for adds and changes, not deletes
@@ -465,21 +467,28 @@ BEGIN
 
 			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
+			SELECT @sql = @sql + 'WHERE '
+			IF @where IS NOT NULL
+				SELECT @sql = @sql + '(' + @where + ') AND (' + @CRLF
+
 			SET @i = 0
 			SELECT
 				@sql = @sql +
-					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '  AND ' END +
+					CASE WHEN @i = 0 THEN '      ' ELSE '  AND ' END +
 					'%1.[' + CASE WHEN @import > 0 THEN kc.name ELSE m.name END + '] IS NULL' + @CRLF,
 				@i = @i + 1
 			FROM @key_columns kc
 			INNER JOIN @mapped_columns m
 			ON kc.column_id = m.column_id
 
+			IF @where IS NOT NULL
+				SELECT @sql = @sql + ')' + @CRLF
+
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
 			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_full_table_name ELSE @remote_full_table_name END), '%1', @to), '%2', @from);
 
-			--PRINT @sql + @CRLF
+			IF @show_sql = 1 PRINT @sql + @CRLF
 
 			SET NOCOUNT OFF;
 			EXEC (@sql)
@@ -501,19 +510,26 @@ BEGIN
 
 			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
+			SELECT @sql = @sql + 'WHERE '
+			IF @where IS NOT NULL
+				SELECT @sql = @sql + '(' + @where + ') AND (' + @CRLF
+
 			SET @i = 0
 			SELECT
 				@sql = @sql +
-					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-					'%1.[' + CASE WHEN @import > 0 THEN kc.name ELSE m.name END + '] IS NOT NULL AND %2.[' + CASE WHEN @import > 0 THEN m.name ELSE kc.name END + '] IS NULL' + @CRLF,
+					CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
+					'(%1.[' + CASE WHEN @import > 0 THEN kc.name ELSE m.name END + '] IS NOT NULL AND %2.[' + CASE WHEN @import > 0 THEN m.name ELSE kc.name END + '] IS NULL)' + @CRLF,
 				@i = @i + 1
 			FROM @key_columns kc
 			INNER JOIN @mapped_columns m
 			ON kc.column_id = m.column_id
 
+			IF @where IS NOT NULL
+				SELECT @sql = @sql + ')' + @CRLF
+
 			SET @sql = REPLACE(REPLACE(@sql, '%1', @to), '%2', @from);
 
-			--PRINT @sql + @CRLF
+			IF @show_sql = 1 PRINT @sql + @CRLF
 
 			SET NOCOUNT OFF;
 			EXEC (@sql)
@@ -548,12 +564,16 @@ BEGIN
 
 			SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'INNER')
 
+			SELECT @sql = @sql + 'WHERE '
+			IF @where IS NOT NULL
+				SELECT @sql = @sql + '(' + @where + ') AND (' + @CRLF
+
 			SET @i = 0
 			SELECT
 				@sql = @sql +
-					CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-					'[ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL' + @CRLF +
-					'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL' + @CRLF +
+					CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
+					'([ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL)' + @CRLF +
+					'   OR ([ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL)' + @CRLF +
 					'   OR [ours].[' + uc.name + '] <> [theirs].[' + m.name + ']' + @CRLF,
 				@i = @i + 1
 			FROM @use_columns uc
@@ -563,11 +583,14 @@ BEGIN
 			ON uc.column_id = kc.column_id
 			WHERE kc.column_id IS NULL
 
+			IF @where IS NOT NULL
+				SELECT @sql = @sql + ')' + @CRLF
+
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
 			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_full_table_name ELSE @remote_full_table_name END), '%1', @to), '%2', @from);
 
-			--PRINT @sql + @CRLF
+			IF @show_sql = 1 PRINT @sql + @CRLF
 
 			SET NOCOUNT OFF;
 			EXEC (@sql)
@@ -611,12 +634,16 @@ BEGIN
 
 	SELECT @sql = @sql + REPLACE(@join_sql, '%0', 'FULL OUTER')
 
+	SELECT @sql = @sql + 'WHERE '
+	IF @where IS NOT NULL
+		SELECT @sql = @sql + '(' + @where + ') AND (' + @CRLF
+
 	SET @i = 0
 	SELECT
 		@sql = @sql +
-			CASE WHEN @i = 0 THEN 'WHERE ' ELSE '   OR ' END +
-			'[ours].[' + kc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL' + @CRLF +
-			'   OR [ours].[' + kc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL' + @CRLF,
+			CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
+			'([ours].[' + kc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL)' + @CRLF +
+			'   OR ([ours].[' + kc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL)' + @CRLF,
 		@i = @i + 1
 	FROM @key_columns kc
 	INNER JOIN @mapped_columns m
@@ -624,8 +651,8 @@ BEGIN
 
 	SELECT
 		@sql = @sql +
-			'   OR [ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL' + @CRLF +
-			'   OR [ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL' + @CRLF +
+			'   OR ([ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL)' + @CRLF +
+			'   OR ([ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL)' + @CRLF +
 			'   OR [ours].[' + uc.name + '] <> [theirs].[' + m.name + ']' + @CRLF
 	FROM @use_columns uc
 	INNER JOIN @mapped_columns m
@@ -634,11 +661,17 @@ BEGIN
 	ON uc.column_id = kc.column_id
 	WHERE kc.column_id IS NULL
 
-	--PRINT @sql + @CRLF
+	IF @where IS NOT NULL
+		SELECT @sql = @sql + ')' + @CRLF
+
+	IF @show_sql = 1 PRINT @sql + @CRLF
 
 	EXEC (@sql)
+	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
-	IF @@ROWCOUNT > 0
+	IF @error <> 0 GOTO complete
+
+	IF @rowcount > 0
 		RAISERROR('Data differences found between OURS <<< %s and THEIRS >>> %s.%s - Switch to results window to view differences.%s - Call [Import|Export][AddedRows|DeletedRows|ChangedRows|All] (e.g. ImportAddedRows) with the same arguments to transfer changes.%s', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
 	ELSE
 		RAISERROR('%sNo data differences found between OURS <<< %s and THEIRS >>> %s.', 0, 1, @CRLF, @local_full_table_name, @remote_full_table_name)
