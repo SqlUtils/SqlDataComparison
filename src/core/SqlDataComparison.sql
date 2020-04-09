@@ -33,6 +33,15 @@ BEGIN
 	DECLARE @rowcount INT
 
 	/*
+	 * confirm @where is approximately valid
+	 */
+	IF @where IS NOT NULL AND CHARINDEX('ours', @where) = 0 AND CHARINDEX('theirs', @where) = 0
+	BEGIN
+		RAISERROR('Columns in @where parameter "%s" should be specified using ours.<colname> or theirs.<colname>', 16, 1, @where)
+		GOTO complete
+	END
+
+	/*
 	 * parse @our_table_name
 	 */
 	DECLARE @our_server sysname
