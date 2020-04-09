@@ -14,7 +14,7 @@ CREATE PROCEDURE [core].[SqlDataComparison]
 	@added_rows bit = null,
 	@deleted_rows bit = null,
 	@changed_rows bit = null,
-	@interleave bit = 0
+	@interleave bit = null
 AS
 BEGIN
 	SET NOCOUNT ON;
