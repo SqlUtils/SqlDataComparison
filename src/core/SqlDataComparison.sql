@@ -646,8 +646,8 @@ BEGIN
 			ON uc.column_id = kc.column_id
 			WHERE kc.column_id IS NULL
 
-			-- If all columns are key columns we need a dummy condition here
-			IF @@ROWCOUNT = 0 SET @SQL = @SQL + '      1 = 1 -- no non-join columns' + @CRLF
+			-- If all columns are key columns there can be no data changes
+			IF @@ROWCOUNT = 0 SET @SQL = @SQL + '      0 = 1 -- no non-join columns, no changes to transfer' + @CRLF
 
 			SELECT @sql = @sql + ')' + @CRLF
 
