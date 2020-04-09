@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE sp_ImportAddedRows
+CREATE PROCEDURE sp_ImportAdded
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@map nvarchar(max) = null,

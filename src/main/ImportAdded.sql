@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE [dbo].[ImportDeletedRows]
+CREATE PROCEDURE [dbo].[ImportAdded]
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@map nvarchar(max) = null,
@@ -26,6 +26,6 @@ BEGIN
 		@show_sql = @show_sql,
 		@interleave = @interleave,
 		@import = 1,
-		@deleted_rows = 1
+		@added_rows = 1
 END
 GO

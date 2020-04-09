@@ -13,7 +13,7 @@ BEGIN
 	INTO #OriginalValues
 	FROM SqlUtilsTests_A..AddressTypes
 
-	EXEC tSQLt.CaptureOutput 'EXEC ImportDeletedRows ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_B..AddressTypes'''
+	EXEC tSQLt.CaptureOutput 'EXEC ImportDeleted ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_B..AddressTypes'''
 
 	SELECT CAST (
 		@CRLF +
@@ -37,7 +37,7 @@ BEGIN
 	INTO #OriginalValues
 	FROM SqlUtilsTests_A..AddressTypes
 
-	EXEC tSQLt.CaptureOutput 'EXEC ImportChangedRows ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_B..AddressTypes'''
+	EXEC tSQLt.CaptureOutput 'EXEC ImportChanged ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_B..AddressTypes'''
 
 	SELECT CAST (
 		@CRLF +
@@ -57,7 +57,7 @@ AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 
-	EXEC tSQLt.CaptureOutput 'EXEC ImportAddedRows ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_B..AddressTypes'''
+	EXEC tSQLt.CaptureOutput 'EXEC ImportAdded ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_B..AddressTypes'''
 
 	SELECT CAST (
 		@CRLF +

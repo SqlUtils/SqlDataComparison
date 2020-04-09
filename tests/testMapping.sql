@@ -12,7 +12,7 @@ BEGIN
 	DECLARE @Message NVARCHAR(MAX) =
 		'Data differences found between OURS <<< [SqlUtilsTests_A].[dbo].[AddressTypes] and THEIRS >>> [SqlUtilsTests_C].[dbo].[AddressMatch].' + @CRLF +
 		' - Switch to results window to view differences.' + @CRLF +
-		' - Call [Import|Export][AddedRows|DeletedRows|ChangedRows|All] (e.g. ImportAddedRows) with the same arguments to transfer changes.' + @CRLF
+		' - Call [Import|Export][Added|Deleted|Changed|All] (e.g. ImportAdded) with the same arguments to transfer changes.' + @CRLF
 
 	EXEC tSQLt.ExpectException @Message, 16, 1
 

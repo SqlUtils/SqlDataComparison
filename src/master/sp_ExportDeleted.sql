@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE [dbo].[ImportChangedRows]
+CREATE PROCEDURE sp_ExportDeleted
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@map nvarchar(max) = null,
@@ -16,7 +16,10 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	EXEC core.SqlDataComparison
+	DECLARE @default_db_name sysname = DB_NAME()
+
+	EXEC SqlUtils.core.SqlDataComparison
+		@default_db_name = @default_db_name,
 		@our_table_name = @our_table_name,
 		@their_table_name = @their_table_name,
 		@map = @map,
@@ -25,7 +28,7 @@ BEGIN
 		@where = @where,
 		@show_sql = @show_sql,
 		@interleave = @interleave,
-		@import = 1,
-		@changed_rows = 1
+		@import = -1,
+		@deleted_rows = 1
 END
 GO

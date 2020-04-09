@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE sp_ExportAddedRows
+CREATE PROCEDURE sp_ImportChanged
 	@our_table_name sysname,
 	@their_table_name sysname,
 	@map nvarchar(max) = null,
@@ -28,7 +28,7 @@ BEGIN
 		@where = @where,
 		@show_sql = @show_sql,
 		@interleave = @interleave,
-		@import = -1,
-		@added_rows = 1
+		@import = 1,
+		@changed_rows = 1
 END
 GO

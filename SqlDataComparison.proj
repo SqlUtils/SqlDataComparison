@@ -15,7 +15,7 @@
 
   <PropertyGroup>
     <PackageId>Mighty.SqlDataComparison</PackageId>
-    <Version>0.3.2</Version>
+    <Version>0.4.1</Version>
     <Authors>Mike Beaton</Authors>
     <PackageTags>SQL Server;SQL;compare data;data comparison</PackageTags>
     <Description>Pure SQL data comparison and reconciliation utility:
