@@ -6,6 +6,7 @@
     <OutputInstall>Install.sql</OutputInstall>
     <OutputInstallMaster>InstallMaster.sql</OutputInstallMaster>
     <OutputCleanMaster>CleanMaster.sql</OutputCleanMaster>
+    <OutputInstallTSQLt>InstallTSQLt.sql</OutputInstallTSQLt>
     <OutputInstallTests>InstallTests.sql</OutputInstallTests>
     <SourcePath>src\</SourcePath>
     <TestsPath>tests\</TestsPath>
@@ -98,7 +99,24 @@ With support for:
   </Target>
 
   <ItemGroup>
-    <InstallTestsFiles Include="$(TestsPath)tsqlt\SetClrEnabled.sql;\OpenSource\tSQLt_V1.0.5873.27393\tSQLt.class.sql;$(TestsPath)test-dbs\RecreateTestDatabases.sql;$(TestsPath)test-dbs\RecreateTestTables.sql;$(TestsPath)*.sql"/>
+    <InstallTSQLtFiles Include="$(TestsPath)tsqlt\SetClrEnabled.sql;\OpenSource\tSQLt_V1.0.5873.27393\tSQLt.class.sql;"/>
+  </ItemGroup>
+
+  <Target Name="CreateInstallTSQLt" Inputs="@(InstallTSQLtFiles)" Outputs="$(OutputPath)$(OutputInstallTSQLt)">
+    <ItemGroup>
+      <InstallTSQLtFileContents Include="PRINT N'%(InstallTSQLtFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallTSQLtFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
+    </ItemGroup>
+    <ItemGroup>
+      <InstallTSQLtFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(OutputPath)$(OutputInstallTSQLt)" Lines="@(InstallTSQLtFileContents)" Overwrite="true" />
+
+    <Message Text="Created $(OutputPath)$(OutputInstallTSQLt)"/>
+  </Target>
+
+  <ItemGroup>
+    <InstallTestsFiles Include="$(TestsPath)test-dbs\RecreateTestDatabases.sql;$(TestsPath)test-dbs\RecreateTestTables.sql;$(TestsPath)*.sql"/>
   </ItemGroup>
 
   <Target Name="CreateInstallTests" Inputs="@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTests)">
@@ -115,7 +133,7 @@ With support for:
   </Target>
 
   <!-- Main build target -->
-  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTests;" />
+  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;" />
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />
