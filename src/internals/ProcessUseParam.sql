@@ -5,8 +5,8 @@ GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [internals].[ProcessUseParam]
 	@use NVARCHAR(MAX),
-	@local_columns internals.ColumnsTable READONLY,
-	@local_full_table_name SYSNAME
+	@our_columns internals.ColumnsTable READONLY,
+	@our_full_table_name SYSNAME
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -21,7 +21,7 @@ BEGIN
 	IF @use IS NULL
 	BEGIN
 		SELECT column_id, name
-		FROM @local_columns
+		FROM @our_columns
 	END
 	ELSE
 	BEGIN
@@ -38,11 +38,11 @@ BEGIN
 		END
 
 		EXEC @retval = internals.ValidateColumns
-			@use_columns, @local_columns,
+			@use_columns, @our_columns,
 			'''', '''', 
 			'Column name %s specified in @use does not exist in %s',
 			'Column names %s specified in @use do not exist in %s',
-			@local_full_table_name
+			@our_full_table_name
 
 		IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
@@ -50,7 +50,7 @@ BEGIN
 		UPDATE uc
 		SET column_id = c.column_id, name = c.name
 		FROM @use_columns uc
-		INNER JOIN @local_columns c
+		INNER JOIN @our_columns c
 		ON uc.name = c.name
 
 		SELECT column_id, name

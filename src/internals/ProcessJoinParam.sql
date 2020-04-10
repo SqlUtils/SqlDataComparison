@@ -6,7 +6,7 @@ GO
 CREATE PROCEDURE [internals].[ProcessJoinParam]
 	@join NVARCHAR(MAX),
 	@use_columns internals.ColumnsTable READONLY,
-	@local_full_table_name SYSNAME
+	@our_full_table_name SYSNAME
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -35,7 +35,7 @@ BEGIN
 		'''', '''',
 		'Column name %s specified in @join does not exist in %s',
 		'Column names %s specified in @join do not exist in %s',
-		@local_full_table_name
+		@our_full_table_name
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 

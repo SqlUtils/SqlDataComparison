@@ -5,10 +5,10 @@ GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [internals].[ProcessMapParam]
 	@map nvarchar(max) = null,
-	@local_columns internals.ColumnsTable READONLY,
-	@remote_columns internals.ColumnsTable READONLY,
-	@local_full_table_name SYSNAME,
-	@remote_full_table_name SYSNAME
+	@our_columns internals.ColumnsTable READONLY,
+	@their_columns internals.ColumnsTable READONLY,
+	@our_full_table_name SYSNAME,
+	@their_full_table_name SYSNAME
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -23,7 +23,7 @@ BEGIN
 	IF @map IS NULL
 	BEGIN
 		SELECT column_id, name
-		FROM @local_columns
+		FROM @our_columns
 	END
 	ELSE
 	BEGIN
@@ -58,11 +58,11 @@ BEGIN
 		FROM #column_mapping
 
 		EXEC @retval = internals.ValidateColumns
-			@map_source, @local_columns,
+			@map_source, @our_columns,
 			'''', '''',
 			'Source column name %s specified in @map does not exist in %s',
 			'Source column names %s specified in @map do not exist in %s',
-			@local_full_table_name
+			@our_full_table_name
 
 		IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
@@ -74,20 +74,20 @@ BEGIN
 		FROM #column_mapping
 
 		EXEC @retval = internals.ValidateColumns
-			@map_target, @remote_columns,
+			@map_target, @their_columns,
 			'''', '''',
 			'Target column name %s specified in @map does not exist in %s',
 			'Target column names %s specified in @map do not exist in %s',
-			@remote_full_table_name
+			@their_full_table_name
 
 		IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 		-- we already know that mapped columns do map, so we can safely convert to the canoncial remote name here
 		SELECT lc.column_id, ISNULL(rc.name, lc.name)
-		FROM @local_columns lc
+		FROM @our_columns lc
 		LEFT OUTER JOIN #column_mapping m
 		ON lc.name = m.name
-		LEFT OUTER JOIN @remote_columns rc
+		LEFT OUTER JOIN @their_columns rc
 		ON m.rename = rc.name
 	END
 

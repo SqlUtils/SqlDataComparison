@@ -54,8 +54,8 @@ BEGIN
 	DECLARE @our_database sysname
 	DECLARE @our_schema sysname
 	DECLARE @our_table sysname
-	DECLARE @local_database_part sysname
-	DECLARE @local_full_table_name sysname
+	DECLARE @our_database_part sysname
+	DECLARE @our_full_table_name sysname
 
 	EXEC @retval = internals.ValidateQualifiedTableName
 		@qualified_table_name = @our_table_name,
@@ -64,8 +64,8 @@ BEGIN
 		@database = @our_database OUTPUT,
 		@schema = @our_schema OUTPUT,
 		@table = @our_table OUTPUT,
-		@full_database_part = @local_database_part OUTPUT,
-		@full_table_name = @local_full_table_name OUTPUT,
+		@full_database_part = @our_database_part OUTPUT,
+		@full_table_name = @our_full_table_name OUTPUT,
 		@param_name = '@our_table_name'
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
@@ -77,8 +77,8 @@ BEGIN
 	DECLARE @their_database sysname
 	DECLARE @their_schema sysname
 	DECLARE @their_table sysname
-	DECLARE @remote_database_part sysname
-	DECLARE @remote_full_table_name sysname
+	DECLARE @their_database_part sysname
+	DECLARE @their_full_table_name sysname
 
 	-- do not apply default database name to theirs (it becomes more confusing than helpful when user sends db.table instead of db..table by mistake)
 	EXEC @retval = internals.ValidateQualifiedTableName
@@ -87,8 +87,8 @@ BEGIN
 		@database = @their_database OUTPUT,
 		@schema = @their_schema OUTPUT,
 		@table = @their_table OUTPUT,
-		@full_database_part = @remote_database_part OUTPUT,
-		@full_table_name = @remote_full_table_name OUTPUT,
+		@full_database_part = @their_database_part OUTPUT,
+		@full_table_name = @their_full_table_name OUTPUT,
 		@param_name = '@their_table_name'
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
@@ -96,14 +96,14 @@ BEGIN
 	/*
 	 * Load local columns
 	 */
-	DECLARE @local_columns internals.ColumnsTable
+	DECLARE @our_columns internals.ColumnsTable
 
-	INSERT INTO @local_columns (column_id, name)
+	INSERT INTO @our_columns (column_id, name)
 	EXEC @retval = internals.ValidateTableAndLoadColumnNames
-		@database_part = @local_database_part,
+		@database_part = @our_database_part,
 		@schema = @our_schema,
 		@table = @our_table,
-		@full_table_name = @local_full_table_name
+		@full_table_name = @our_full_table_name
 
 	IF @retval <> -0 OR @@ERROR <> 0 GOTO error
 
@@ -115,22 +115,22 @@ BEGIN
 	INSERT INTO @use_columns (column_id, name)
 	EXEC @retval = internals.ProcessUseParam
 		@use = @use,
-		@local_columns = @local_columns,
-		@local_full_table_name = @local_full_table_name
+		@our_columns = @our_columns,
+		@our_full_table_name = @our_full_table_name
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
 	 * Load remote columns
 	 */
-	DECLARE @remote_columns internals.ColumnsTable
+	DECLARE @their_columns internals.ColumnsTable
 
-	INSERT INTO @remote_columns (column_id, name)
+	INSERT INTO @their_columns (column_id, name)
 	EXEC @retval = internals.ValidateTableAndLoadColumnNames
-		@database_part = @remote_database_part,
+		@database_part = @their_database_part,
 		@schema = @their_schema,
 		@table = @their_table,
-		@full_table_name = @remote_full_table_name
+		@full_table_name = @their_full_table_name
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
@@ -143,21 +143,21 @@ BEGIN
 	INSERT INTO @mapped_columns (column_id, name)
 	EXEC @retval = internals.ProcessMapParam
 		@map = @map,
-		@local_columns = @local_columns,
-		@remote_columns = @remote_columns,
-		@local_full_table_name = @local_full_table_name,
-		@remote_full_table_name = @remote_full_table_name
+		@our_columns = @our_columns,
+		@their_columns = @their_columns,
+		@our_full_table_name = @our_full_table_name,
+		@their_full_table_name = @their_full_table_name
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
 	 * Confirm that all columns to be used exist remotely
 	 */
-	EXEC @retval = internals.CheckRemoteColumns
+	EXEC @retval = internals.CheckTheirColumnsExists
 		@use_columns = @use_columns,
 		@mapped_columns = @mapped_columns,
-		@remote_columns  = @remote_columns,
-		@remote_full_table_name = @remote_full_table_name
+		@their_columns  = @their_columns,
+		@their_full_table_name = @their_full_table_name
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
@@ -175,7 +175,7 @@ BEGIN
 		EXEC @retval = internals.ProcessJoinParam
 			@join = @join,
 			@use_columns = @use_columns,
-			@local_full_table_name = @local_full_table_name
+			@our_full_table_name = @our_full_table_name
 
 		IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 	END
@@ -186,7 +186,7 @@ BEGIN
 		 */
 		INSERT INTO @key_columns (column_id, name)
 		EXEC @retval = internals.GetPrimaryKeyColumns
-			@database_part = @local_database_part,
+			@database_part = @our_database_part,
 			@schema = @our_schema,
 			@table = @our_table
 
@@ -196,7 +196,7 @@ BEGIN
 
 		IF @rowcount = 0
 		BEGIN
-			RAISERROR('There are no primary keys for table %s. One or more primary keys or a @join parameter are required to join the tables to be compared.', 16, 1, @local_full_table_name)
+			RAISERROR('There are no primary keys for table %s. One or more primary keys or a @join parameter are required to join the tables to be compared.', 16, 1, @our_full_table_name)
 			GOTO error
 		END
 	END
@@ -218,8 +218,8 @@ BEGIN
 	 */
 	DECLARE @join_sql NVARCHAR(MAX)
 
-	SELECT @join_sql = 'FROM ' + @local_full_table_name + ' [ours]' + @CRLF
-	SELECT @join_sql = @join_sql + '%0 JOIN ' + @remote_full_table_name + ' [theirs]' + @CRLF
+	SELECT @join_sql = 'FROM ' + @our_full_table_name + ' [ours]' + @CRLF
+	SELECT @join_sql = @join_sql + '%0 JOIN ' + @their_full_table_name + ' [theirs]' + @CRLF
 
 	SET @i = 0
 	SELECT
@@ -246,13 +246,13 @@ BEGIN
 			IF @import > 0
 				INSERT INTO @identity_columns (column_id, name)
 				EXEC @retval = internals.GetIdentityColumns
-					@database_part = @local_database_part,
+					@database_part = @our_database_part,
 					@schema = @our_schema,
 					@table = @our_table
 			ELSE
 				INSERT INTO @identity_columns (column_id, name)
 				EXEC @retval = internals.GetIdentityColumns
-					@database_part = @remote_database_part,
+					@database_part = @their_database_part,
 					@schema = @their_schema,
 					@table = @their_table
 
@@ -319,7 +319,7 @@ BEGIN
 
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
-			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_full_table_name ELSE @remote_full_table_name END), '%1', @to), '%2', @from);
+			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @our_full_table_name ELSE @their_full_table_name END), '%1', @to), '%2', @from);
 
 			IF @show_sql = 1 PRINT @sql + @CRLF
 
@@ -426,7 +426,7 @@ BEGIN
 
 			-- do not add SQL to explicitly turn off IDENTITY_INSERT, as it loses the rowcount and is turned off automatically when we leave the scope of the EXEC() anyway
 
-			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_full_table_name ELSE @remote_full_table_name END), '%1', @to), '%2', @from);
+			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @our_full_table_name ELSE @their_full_table_name END), '%1', @to), '%2', @from);
 
 			IF @show_sql = 1 PRINT @sql + @CRLF
 
@@ -460,12 +460,12 @@ BEGIN
 		SET @sql = @sql + '''OURS <<<'' AS [ ],' + @CRLF
 
 		SELECT @sql = @sql + @TAB + '   [ours].[' + name + '],' + @CRLF
-		FROM @local_columns
+		FROM @our_columns
 
 		SET @sql = @sql + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
 
 		SELECT @sql = @sql + @TAB + '   [theirs].[' + name + '],' + @CRLF
-		FROM @remote_columns
+		FROM @their_columns
 	END
 
 	SELECT @sql = SUBSTRING(@sql, 1, LEN(@sql) - LEN(@CRLF) - 1) + @CRLF
@@ -511,9 +511,9 @@ BEGIN
 	IF @error <> 0 GOTO error
 
 	IF @rowcount > 0
-		RAISERROR('Data differences found between OURS <<< %s and THEIRS >>> %s.%s - Switch to results window to view differences.%s - Call [Import|Export][Added|Deleted|Changed|All] (e.g. ImportAdded) with the same arguments to transfer changes.%s', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
+		RAISERROR('Data differences found between OURS <<< %s and THEIRS >>> %s.%s - Switch to results window to view differences.%s - Call [Import|Export][Added|Deleted|Changed|All] (e.g. ImportAdded) with the same arguments to transfer changes.%s', 16, 1, @our_full_table_name, @their_full_table_name, @CRLF, @CRLF, @CRLF)
 	ELSE
-		RAISERROR('%sNo data differences found between OURS <<< %s and THEIRS >>> %s.', 0, 1, @CRLF, @local_full_table_name, @remote_full_table_name)
+		RAISERROR('%sNo data differences found between OURS <<< %s and THEIRS >>> %s.', 0, 1, @CRLF, @our_full_table_name, @their_full_table_name)
 
 	RETURN 0
 

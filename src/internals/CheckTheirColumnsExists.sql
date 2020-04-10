@@ -3,11 +3,11 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE [internals].[CheckRemoteColumns]
+CREATE PROCEDURE [internals].[CheckTheirColumnsExists]
 	@use_columns internals.ColumnsTable READONLY,
 	@mapped_columns internals.ColumnsTable READONLY,
-	@remote_columns internals.ColumnsTable READONLY,
-	@remote_full_table_name SYSNAME
+	@their_columns internals.ColumnsTable READONLY,
+	@their_full_table_name SYSNAME
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -24,11 +24,11 @@ BEGIN
 	ON u.column_id = m.column_id
 
 	EXEC @retval = internals.ValidateColumns
-		@mapped_use_columns, @remote_columns,
+		@mapped_use_columns, @their_columns,
 		'[', ']', -- use [] to quote these names, as we know they exist locally
 		'Required column %s does not exist in %s',
 		'Required columns %s do not exist in %s',
-		@remote_full_table_name
+		@their_full_table_name
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
