@@ -39,5 +39,5 @@ In addition to specifying 'our' and 'their' databases as above, additional argum
  - @where: detailed where condition constraining which rows to process, specify columns with 'ours' or
            'theirs', e.g. 'ours.valid = 1'
  - @showSql: show the generated SQL *as well as running it*; especially useful in combination with the
-              'ROLLBACK TRANSACTION' trick above, to be sure what will happen before committing to it
+             'ROLLBACK TRANSACTION' trick above, to be sure what will happen before committing to it
  - @interleave: set to 1 to use alternative diff view, which may make it easier to see some types of changes
