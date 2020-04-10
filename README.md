@@ -62,7 +62,7 @@ In addition to specifying 'ours' and 'theirs' tables as above, the following opt
  - `@map`: the mapping between 'ours' and 'theirs' columns, e.g. `'col1, map_col1; col2, map_col2'`
  - `@ids`: range or set of ids to process, e.g. `'2-7'` or `'1, 2, 3, 5, 9'` (applicable to a single integer join/key column only; use `@where` for more complicated scenarios)
  - `@where`: where condition constraining which rows to process; qualify columns with 'ours' or 'theirs', e.g. `'ours.valid = 1'`
- - `@show_sql`: show the generated SQL *as well as running it*; especially useful in combination with the `ROLLBACK TRANSACTION` trick shown above, to be sure of what will happen before committing it
+ - `@showSql`: show the generated SQL *as well as running it*; especially useful in combination with the `ROLLBACK TRANSACTION` trick shown above, to be sure of what will happen before committing it
  - `@interleave`: set to `1` to use an alternative diff view, which may make it easier to see some types of row differences
 
 ## Development

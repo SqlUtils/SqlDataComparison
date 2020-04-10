@@ -5,7 +5,7 @@ GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [internals].[ValidateQualifiedTableName]
 	@qualified_table_name sysname,
-	@default_db_name sysname = NULL,
+	@defaultDbName sysname = NULL,
 	@server sysname OUTPUT,
 	@database sysname OUTPUT,
 	@schema sysname OUTPUT,
@@ -18,7 +18,7 @@ BEGIN
 	SET NOCOUNT ON;
 	SELECT
 		@server = PARSENAME(@qualified_table_name, 4),
-		@database = ISNULL(PARSENAME(@qualified_table_name, 3), @default_db_name),
+		@database = ISNULL(PARSENAME(@qualified_table_name, 3), @defaultDbName),
 		@schema = ISNULL(PARSENAME(@qualified_table_name, 2), 'dbo'),
 		@table = PARSENAME(@qualified_table_name, 1)
 

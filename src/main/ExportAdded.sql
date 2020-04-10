@@ -4,28 +4,28 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [dbo].[ExportAdded]
-	@our_table_name sysname,
-	@their_table_name sysname,
+	@ourTableName sysname,
+	@theirTableName sysname,
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
 	@ids nvarchar(max) = null,
 	@where nvarchar(max) = null,
-	@show_sql bit = null,
+	@showSql bit = null,
 	@interleave bit = null
 AS
 BEGIN
 	SET NOCOUNT ON;
 
 	EXEC core.SqlDataComparison
-		@our_table_name = @our_table_name,
-		@their_table_name = @their_table_name,
+		@ourTableName = @ourTableName,
+		@theirTableName = @theirTableName,
 		@map = @map,
 		@join = @join,
 		@use = @use,
 		@ids = @ids,
 		@where = @where,
-		@show_sql = @show_sql,
+		@showSql = @showSql,
 		@interleave = @interleave,
 		@import = -1,
 		@added_rows = 1

@@ -7,7 +7,7 @@ GO
 CREATE PROCEDURE testTableName.[test empty our table]
 AS
 BEGIN
-	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @our_table_name = ''''', 16, 1
+	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @ourTableName = ''''', 16, 1
 
 	EXEC CompareData '', ''
 END
@@ -34,7 +34,7 @@ GO
 CREATE PROCEDURE testTableName.[test empty their table]
 AS
 BEGIN
-	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @their_table_name = ''''', 16, 1
+	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @theirTableName = ''''', 16, 1
 
 	EXEC CompareData 'a..a', ''
 END
@@ -43,7 +43,7 @@ GO
 CREATE PROCEDURE testTableName.[test missing table in our table]
 AS
 BEGIN
-	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @our_table_name = ''a..''', 16, 1
+	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @ourTableName = ''a..''', 16, 1
 
 	EXEC CompareData 'a..', ''
 END
@@ -52,7 +52,7 @@ GO
 CREATE PROCEDURE testTableName.[test missing table in their table]
 AS
 BEGIN
-	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @their_table_name = ''b..''', 16, 1
+	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @theirTableName = ''b..''', 16, 1
 
 	EXEC CompareData 'a..a', 'b..'
 END
@@ -61,7 +61,7 @@ GO
 CREATE PROCEDURE testTableName.[test missing database in our table]
 AS
 BEGIN
-	EXEC tSQLt.ExpectException 'Invalid or missing database name in parameter @our_table_name = ''a''', 16, 1
+	EXEC tSQLt.ExpectException 'Invalid or missing database name in parameter @ourTableName = ''a''', 16, 1
 
 	EXEC CompareData 'a', ''
 END
@@ -70,7 +70,7 @@ GO
 CREATE PROCEDURE testTableName.[test missing database in their table]
 AS
 BEGIN
-	EXEC tSQLt.ExpectException 'Invalid or missing database name in parameter @their_table_name = ''b''', 16, 1
+	EXEC tSQLt.ExpectException 'Invalid or missing database name in parameter @theirTableName = ''b''', 16, 1
 
 	EXEC CompareData 'a..a', 'b'
 END

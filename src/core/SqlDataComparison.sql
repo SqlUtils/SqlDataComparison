@@ -4,9 +4,9 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [core].[SqlDataComparison]
-	@our_table_name sysname,
-	@their_table_name sysname,
-	@default_db_name sysname = null,
+	@ourTableName sysname,
+	@theirTableName sysname,
+	@defaultDbName sysname = null,
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
@@ -16,7 +16,7 @@ CREATE PROCEDURE [core].[SqlDataComparison]
 	@added_rows bit = null,
 	@deleted_rows bit = null,
 	@changed_rows bit = null,
-	@show_sql bit = null,
+	@showSql bit = null,
 	@interleave bit = null
 AS
 BEGIN
@@ -48,7 +48,7 @@ BEGIN
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
-	 * parse @our_table_name
+	 * parse @ourTableName
 	 */
 	DECLARE @our_server sysname
 	DECLARE @our_database sysname
@@ -58,20 +58,20 @@ BEGIN
 	DECLARE @our_full_table_name sysname
 
 	EXEC @retval = internals.ValidateQualifiedTableName
-		@qualified_table_name = @our_table_name,
-		@default_db_name = @default_db_name,
+		@qualified_table_name = @ourTableName,
+		@defaultDbName = @defaultDbName,
 		@server = @our_server OUTPUT,
 		@database = @our_database OUTPUT,
 		@schema = @our_schema OUTPUT,
 		@table = @our_table OUTPUT,
 		@full_database_part = @our_database_part OUTPUT,
 		@full_table_name = @our_full_table_name OUTPUT,
-		@param_name = '@our_table_name'
+		@param_name = '@ourTableName'
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
-	 * parse @their_table_name
+	 * parse @theirTableName
 	 */
 	DECLARE @their_server sysname
 	DECLARE @their_database sysname
@@ -82,14 +82,14 @@ BEGIN
 
 	-- do not apply default database name to theirs (it becomes more confusing than helpful when user sends db.table instead of db..table by mistake)
 	EXEC @retval = internals.ValidateQualifiedTableName
-		@qualified_table_name = @their_table_name,
+		@qualified_table_name = @theirTableName,
 		@server = @their_server OUTPUT,
 		@database = @their_database OUTPUT,
 		@schema = @their_schema OUTPUT,
 		@table = @their_table OUTPUT,
 		@full_database_part = @their_database_part OUTPUT,
 		@full_table_name = @their_full_table_name OUTPUT,
-		@param_name = '@their_table_name'
+		@param_name = '@theirTableName'
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
@@ -321,7 +321,7 @@ BEGIN
 
 			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @our_full_table_name ELSE @their_full_table_name END), '%1', @to), '%2', @from);
 
-			IF @show_sql = 1 PRINT @sql + @CRLF
+			IF @showSql = 1 PRINT @sql + @CRLF
 
 			SET NOCOUNT OFF;
 			EXEC (@sql)
@@ -363,7 +363,7 @@ BEGIN
 
 			SET @sql = REPLACE(REPLACE(@sql, '%1', @to), '%2', @from);
 
-			IF @show_sql = 1 PRINT @sql + @CRLF
+			IF @showSql = 1 PRINT @sql + @CRLF
 
 			SET NOCOUNT OFF;
 			EXEC (@sql)
@@ -428,7 +428,7 @@ BEGIN
 
 			SET @sql = REPLACE(REPLACE(REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @our_full_table_name ELSE @their_full_table_name END), '%1', @to), '%2', @from);
 
-			IF @show_sql = 1 PRINT @sql + @CRLF
+			IF @showSql = 1 PRINT @sql + @CRLF
 
 			SET NOCOUNT OFF;
 			EXEC (@sql)
@@ -503,7 +503,7 @@ BEGIN
 
 	SELECT @sql = @sql + ')' + @CRLF
 
-	IF @show_sql = 1 PRINT @sql + @CRLF
+	IF @showSql = 1 PRINT @sql + @CRLF
 
 	EXEC (@sql)
 	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR

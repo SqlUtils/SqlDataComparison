@@ -78,8 +78,8 @@ AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 
-	EXEC tSQLt.CaptureOutput 'EXEC ImportChanged ''SqlUtilsTests_A..CountryTable'', ''SqlUtilsTests_C..CountryList'', @use=''countryid, country'', @show_sql = 1'
-	EXEC tSQLt.CaptureOutput 'EXEC ImportChanged ''SqlUtilsTests_A..CountryTable'', ''SqlUtilsTests_C..CountryList'', @use=''countryid, country'', @join=''countryid, country'', @show_sql = 1'
+	EXEC tSQLt.CaptureOutput 'EXEC ImportChanged ''SqlUtilsTests_A..CountryTable'', ''SqlUtilsTests_C..CountryList'', @use=''countryid, country'', @showSql = 1'
+	EXEC tSQLt.CaptureOutput 'EXEC ImportChanged ''SqlUtilsTests_A..CountryTable'', ''SqlUtilsTests_C..CountryList'', @use=''countryid, country'', @join=''countryid, country'', @showSql = 1'
 
 	-- two rows
 	SELECT *

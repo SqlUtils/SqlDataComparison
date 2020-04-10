@@ -4,31 +4,31 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE sp_CompareData
-	@our_table_name sysname,
-	@their_table_name sysname,
+	@ourTableName sysname,
+	@theirTableName sysname,
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
 	@ids nvarchar(max) = null,
 	@where nvarchar(max) = null,
-	@show_sql bit = null,
+	@showSql bit = null,
 	@interleave bit = null
 AS
 BEGIN
 	SET NOCOUNT ON;
 
-	DECLARE @default_db_name sysname = DB_NAME()
+	DECLARE @defaultDbName sysname = DB_NAME()
 
 	EXEC SqlUtils.core.SqlDataComparison
-		@default_db_name = @default_db_name,
-		@our_table_name = @our_table_name,
-		@their_table_name = @their_table_name,
+		@defaultDbName = @defaultDbName,
+		@ourTableName = @ourTableName,
+		@theirTableName = @theirTableName,
 		@map = @map,
 		@join = @join,
 		@use = @use,
 		@ids = @ids,
 		@where = @where,
-		@show_sql = @show_sql,
+		@showSql = @showSql,
 		@interleave = @interleave
 END
 GO
