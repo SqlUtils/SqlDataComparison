@@ -3,7 +3,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE [internals].[CheckTheirColumnsExists]
+CREATE PROCEDURE [internals].[CheckTheirColumnsExist]
 	@use_columns internals.ColumnsTable READONLY,
 	@mapped_columns internals.ColumnsTable READONLY,
 	@their_columns internals.ColumnsTable READONLY,

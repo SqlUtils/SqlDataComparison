@@ -153,7 +153,7 @@ BEGIN
 	/*
 	 * Confirm that all columns to be used exist remotely
 	 */
-	EXEC @retval = internals.CheckTheirColumnsExists
+	EXEC @retval = internals.CheckTheirColumnsExist
 		@use_columns = @use_columns,
 		@mapped_columns = @mapped_columns,
 		@their_columns  = @their_columns,
