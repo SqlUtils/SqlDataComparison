@@ -24,19 +24,22 @@ BEGIN
 
 	IF @table IS NULL
 	BEGIN
-		RAISERROR('Invalid or missing table name in parameter %s=''%s''', 16, 1, @param_name, @qualified_table_name)
-		GOTO completed
+		RAISERROR('Invalid or missing table name in parameter %s = ''%s''', 16, 1, @param_name, @qualified_table_name)
+		GOTO error
 	END
 
 	IF @database IS NULL
 	BEGIN
-		RAISERROR('Invalid or missing database name in parameter %s=''%s''', 16, 1, @param_name, @qualified_table_name)
-		GOTO completed
+		RAISERROR('Invalid or missing database name in parameter %s = ''%s''', 16, 1, @param_name, @qualified_table_name)
+		GOTO error
 	END
 
 	SET @full_database_part = ISNULL('[' + @server + '].[', '[') + @database + ']'
 	SET @full_table_name = @full_database_part + '.[' + @schema + '].[' + @table + ']'
 
-completed:
+	RETURN 0
+
+error:
+	RETURN -1
 END
 GO

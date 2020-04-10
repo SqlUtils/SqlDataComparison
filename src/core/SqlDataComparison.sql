@@ -22,6 +22,10 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
+	-- used for building readable SQL
+	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
+	DECLARE @TAB CHAR(1) = CHAR(9)
+
 	-- loop var
 	DECLARE @i INT
 
@@ -29,18 +33,19 @@ BEGIN
 	DECLARE @params NVARCHAR(MAX)
 	DECLARE @sql NVARCHAR(MAX)
 
-	-- use to collect @@ return values
+	-- used to collect @@ return values
 	DECLARE @error INT
 	DECLARE @rowcount INT
 
+	-- used to collect SP return values
+	DECLARE @retval INT
+
 	/*
-	 * confirm @where is approximately valid
+	 * confirm @where param is approximately valid
 	 */
-	IF @where IS NOT NULL AND CHARINDEX('ours', @where) = 0 AND CHARINDEX('theirs', @where) = 0
-	BEGIN
-		RAISERROR('Columns in @where parameter "%s" should be specified using ours.<colname> or theirs.<colname>', 16, 1, @where)
-		GOTO complete
-	END
+	EXEC @retval = internals.ValidateWhereParam @where
+
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
 	 * parse @our_table_name
@@ -52,7 +57,7 @@ BEGIN
 	DECLARE @local_database_part sysname
 	DECLARE @local_full_table_name sysname
 
-	EXEC internals.ValidateQualifiedTableName
+	EXEC @retval = internals.ValidateQualifiedTableName
 		@qualified_table_name = @our_table_name,
 		@default_db_name = @default_db_name,
 		@server = @our_server OUTPUT,
@@ -63,7 +68,7 @@ BEGIN
 		@full_table_name = @local_full_table_name OUTPUT,
 		@param_name = '@our_table_name'
 
-	IF @@ERROR <> 0 GOTO complete
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
 	 * parse @their_table_name
@@ -75,8 +80,8 @@ BEGIN
 	DECLARE @remote_database_part sysname
 	DECLARE @remote_full_table_name sysname
 
-	-- do not apply default table name to theirs (it becomes more confusing than helpful when user sends db.table instead of db..table by mistake)
-	EXEC internals.ValidateQualifiedTableName
+	-- do not apply default database name to theirs (it becomes more confusing than helpful when user sends db.table instead of db..table by mistake)
+	EXEC @retval = internals.ValidateQualifiedTableName
 		@qualified_table_name = @their_table_name,
 		@server = @their_server OUTPUT,
 		@database = @their_database OUTPUT,
@@ -86,294 +91,113 @@ BEGIN
 		@full_table_name = @remote_full_table_name OUTPUT,
 		@param_name = '@their_table_name'
 
-	IF @@ERROR <> 0 GOTO complete
-
-	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
-	DECLARE @TAB CHAR(1) = CHAR(9)
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
-	 * Check for table existence
-	 */
-	SET @params =
-		'@schema sysname,' + @CRLF +
-		'@table sysname,' + @CRLF +
-		'@object_id int = null output'
-	SET @sql =
-		'SELECT @object_id = o.object_id' + @CRLF +
-		'FROM ' + @local_database_part + '.sys.objects o' + @CRLF +
-		'INNER JOIN ' + @local_database_part + '.sys.schemas s' + @CRLF +
-		'ON o.schema_id = s.schema_id' + @CRLF +
-		'AND s.name = @schema' + @CRLF +
-		'WHERE o.name = @table' + @CRLF
-
-	EXEC sp_executesql @sql, @params, @our_schema, @our_table
-	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
-
-	IF @error <> 0 GOTO complete
-
-	IF @rowcount = 0
-	BEGIN
-		RAISERROR('Cannot find table %s', 16, 1, @local_full_table_name)
-		GOTO complete
-	END
-
-	/*
-	 * Get local table columns
+	 * Load local columns
 	 */
 	DECLARE @local_columns internals.ColumnsTable
 
-	SET @params =
-		'@schema sysname,' + @CRLF +
-		'@table sysname'
-	SET @sql =
-		'SELECT c.column_id, c.name' + @CRLF +
-		'FROM ' + @local_database_part + '.sys.objects o' + @CRLF +
-		'INNER JOIN ' + @local_database_part + '.sys.schemas s' + @CRLF +
-		'ON o.schema_id = s.schema_id' + @CRLF +
-		'AND s.name = @schema' + @CRLF +
-		'INNER JOIN ' + @local_database_part + '.sys.columns c' + @CRLF +
-		'ON o.object_id = c.object_id' + @CRLF +
-		'WHERE o.name = @table'
-		
 	INSERT INTO @local_columns (column_id, name)
-	EXEC sp_executesql @sql, @params, @our_schema, @our_table
-	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+	EXEC @retval = internals.ValidateTableAndLoadColumnNames
+		@database_part = @local_database_part,
+		@schema = @our_schema,
+		@table = @our_table,
+		@full_table_name = @local_full_table_name
 
-	IF @error <> 0 GOTO complete
-
-	IF @rowcount = 0
-	BEGIN
-		RAISERROR('There are no columns for table %s', 16, 1, @local_full_table_name)
-		GOTO complete
-	END
+	IF @retval <> -0 OR @@ERROR <> 0 GOTO error
 
 	/*
-	 * Validate @use
+	 * Process @use param
 	 */
 	DECLARE @use_columns internals.ColumnsTable
 
-	IF @use IS NULL
-	BEGIN
-		INSERT INTO @use_columns (column_id, name)
-		SELECT column_id, name
-		FROM @local_columns
-	END
-	ELSE
-	BEGIN
-		INSERT INTO @use_columns (name)
-		SELECT name FROM internals.SplitColumnNames(@use)
-		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+	INSERT INTO @use_columns (column_id, name)
+	EXEC @retval = internals.ProcessUseParam
+		@use = @use,
+		@local_columns = @local_columns,
+		@local_full_table_name = @local_full_table_name
 
-		IF @error <> 0
-		BEGIN
-			RAISERROR('*** Illegal or missing column names found in @use ''%s'' (quote column names using [...] if necessary)', 16, 1, @use)
-			GOTO complete
-		END
-
-		EXEC internals.ValidateColumns
-			@use_columns, @local_columns,
-			'''', '''', 
-			'Column name %s specified in @use does not exist in %s',
-			'Column names %s specified in @use do not exist in %s',
-			@local_full_table_name
-		IF @@ERROR <> 0 GOTO complete
-
-		-- fill out @use_columns and give canonical name
-		UPDATE uc
-		SET column_id = c.column_id, name = c.name
-		FROM @use_columns uc
-		INNER JOIN @local_columns c
-		ON uc.name = c.name
-	END
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
-	 * Collect remote columns
+	 * Load remote columns
 	 */
 	DECLARE @remote_columns internals.ColumnsTable
 
-	SET @params =
-		'@schema sysname,' + @CRLF +
-		'@table sysname'
-	SET @sql =
-		'SELECT c.column_id, c.name' + @CRLF +
-		'FROM ' + @remote_database_part + '.sys.objects o' + @CRLF +
-		'INNER JOIN ' + @remote_database_part + '.sys.schemas s' + @CRLF +
-		'ON o.schema_id = s.schema_id' + @CRLF +
-		'AND s.name = @schema' + @CRLF +
-		'INNER JOIN ' + @remote_database_part + '.sys.columns c' + @CRLF +
-		'ON o.object_id = c.object_id' + @CRLF +
-		'WHERE o.name = @table'
-		
 	INSERT INTO @remote_columns (column_id, name)
-	EXEC sp_executesql @sql, @params, @their_schema, @their_table
-	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
+	EXEC @retval = internals.ValidateTableAndLoadColumnNames
+		@database_part = @remote_database_part,
+		@schema = @their_schema,
+		@table = @their_table,
+		@full_table_name = @remote_full_table_name
 
-	IF @error <> 0 GOTO complete
-
-	IF @rowcount = 0
-	BEGIN
-		RAISERROR('There are no columns for table %s', 16, 1, @remote_full_table_name)
-		GOTO complete
-	END
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
-	 * Validate and process column name remapping
+	 * Process column name remapping
 	 */
 	-- NB @mapped_columns contains local column id with mapped remote column name
 	DECLARE @mapped_columns internals.ColumnsTable
 
-	IF @map IS NULL
-	BEGIN
-		INSERT INTO @mapped_columns (column_id, name)
-		SELECT column_id, name
-		FROM @local_columns
-	END
-	ELSE
-	BEGIN
-		CREATE TABLE #column_mapping
-		(
-			[name] sysname,
-			rename sysname
-		)
+	INSERT INTO @mapped_columns (column_id, name)
+	EXEC @retval = internals.ProcessMapParam
+		@map = @map,
+		@local_columns = @local_columns,
+		@remote_columns = @remote_columns,
+		@local_full_table_name = @local_full_table_name,
+		@remote_full_table_name = @remote_full_table_name
 
-		INSERT INTO #column_mapping
-		SELECT [name], rename
-		FROM internals.SplitColumnMap(@map)
-		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
-
-		IF @error <> 0
-		BEGIN
-			RAISERROR('*** Illegal data found in @map ''%s'' (use ''our_col1,their_col1;our_col2,their_col2'', quoting column names using [...] if necessary)', 16, 1, @map)
-			GOTO complete
-		END
-
-		-- validate mapping source columns
-		DECLARE @map_source internals.ColumnsTable
-
-		INSERT INTO @map_source (name)
-		SELECT name
-		FROM #column_mapping
-
-		EXEC internals.ValidateColumns
-			@map_source, @local_columns,
-			'''', '''',
-			'Source column name %s specified in @map does not exist in %s',
-			'Source column names %s specified in @map do not exist in %s',
-			@local_full_table_name
-		IF @@ERROR <> 0 GOTO complete
-
-		-- validate mapping target columns
-		DECLARE @map_target internals.ColumnsTable
-
-		INSERT INTO @map_target (name)
-		SELECT rename
-		FROM #column_mapping
-
-		EXEC internals.ValidateColumns
-			@map_target, @remote_columns,
-			'''', '''',
-			'Target column name %s specified in @map does not exist in %s',
-			'Target column names %s specified in @map do not exist in %s',
-			@remote_full_table_name
-		IF @@ERROR <> 0 GOTO complete
-
-		-- we already know that mapped columns do map, so we can safely convert to the canoncial remote name here
-		INSERT INTO @mapped_columns (column_id, name)
-		SELECT lc.column_id, ISNULL(rc.name, lc.name)
-		FROM @local_columns lc
-		LEFT OUTER JOIN #column_mapping m
-		ON lc.name = m.name
-		LEFT OUTER JOIN @remote_columns rc
-		ON m.rename = rc.name
-	END
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
 	 * Confirm that all columns to be used exist remotely
 	 */
-	DECLARE @mapped_use_columns internals.ColumnsTable
+	EXEC @retval = internals.CheckRemoteColumns
+		@use_columns = @use_columns,
+		@mapped_columns = @mapped_columns,
+		@remote_columns  = @remote_columns,
+		@remote_full_table_name = @remote_full_table_name
 
-	INSERT INTO @mapped_use_columns (name)
-	SELECT m.name
-	FROM @use_columns u
-	INNER JOIN @mapped_columns m
-	ON u.column_id = m.column_id
-
-	EXEC internals.ValidateColumns
-		@mapped_use_columns, @remote_columns,
-		'[', ']', -- use [] to quote these names, as we know they exist locally
-		'Required column %s does not exist in %s',
-		'Required columns %s do not exist in %s',
-		@remote_full_table_name
-	IF @@ERROR <> 0 GOTO complete
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
 	 * Holds table primary key columns or user-specified join columns
 	 */
 	DECLARE @key_columns internals.ColumnsTable
 
-	/*
-	 * Use @join for join instead of table primary keys, if provided
-	 */
 	IF @join IS NOT NULL
 	BEGIN
-		DECLARE @join_columns internals.ColumnsTable
-
-		INSERT INTO @join_columns (name)
-		SELECT name FROM internals.SplitColumnNames(@join)
-		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
-
-		IF @error <> 0
-		BEGIN
-			RAISERROR('*** Illegal or missing column names found in @join ''%s'' (quote column names using [...] if necessary)', 16, 1, @join)
-			GOTO complete
-		END
-
-		EXEC internals.ValidateColumns
-			@join_columns, @use_columns,
-			'''', '''',
-			'Column name %s specified in @join does not exist in %s',
-			'Column names %s specified in @join do not exist in %s',
-			@local_full_table_name
-		IF @@ERROR <> 0 GOTO complete
-
+		/*
+		 * Use @join for join instead of table primary keys, if provided
+		 */
 		INSERT INTO @key_columns (column_id, name)
-		SELECT c.column_id, c.name
-		FROM @use_columns c
-		INNER JOIN @join_columns jc
-		ON c.name = jc.name
+		EXEC @retval = internals.ProcessJoinParam
+			@join = @join,
+			@use_columns = @use_columns,
+			@local_full_table_name = @local_full_table_name
+
+		IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 	END
 	ELSE
 	BEGIN
-		SET @params =
-			'@schema sysname,' + @CRLF +
-			'@table sysname'
-		SET @sql =
-			'SELECT c.column_id, c.name' + @CRLF +
-			'FROM ' + @local_database_part + '.sys.objects o' + @CRLF +
-			'INNER JOIN ' + @local_database_part + '.sys.schemas s' + @CRLF +
-			'ON o.schema_id = s.schema_id' + @CRLF +
-			'AND s.name = @schema' + @CRLF +
-			'INNER JOIN ' + @local_database_part + '.sys.indexes i' + @CRLF +
-			'ON o.object_id = i.object_id' + @CRLF +
-			'AND i.is_primary_key = 1' + @CRLF +
-			'INNER JOIN ' + @local_database_part + '.sys.index_columns ic' + @CRLF +
-			'ON i.object_id = ic.object_id' + @CRLF +
-			'AND i.index_id = ic.index_id' + @CRLF +
-			'INNER JOIN ' + @local_database_part + '.sys.columns c' + @CRLF +
-			'ON c.column_id = ic.column_id' + @CRLF +
-			'AND c.object_id = o.object_id' + @CRLF +
-			'WHERE o.name = @table'
-		
+		/*
+		 * Load our table primary key columns
+		 */
 		INSERT INTO @key_columns (column_id, name)
-		EXEC sp_executesql @sql, @params, @our_schema, @our_table
+		EXEC @retval = internals.GetPrimaryKeyColumns
+			@database_part = @local_database_part,
+			@schema = @our_schema,
+			@table = @our_table
+
 		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
-		IF @error <> 0 GOTO complete
+		IF @retval <> 0 OR @error <> 0 GOTO error
 
 		IF @rowcount = 0
 		BEGIN
 			RAISERROR('There are no primary keys for table %s. One or more primary keys or a @join parameter are required to join the tables to be compared.', 16, 1, @local_full_table_name)
-			GOTO complete
+			GOTO error
 		END
 	END
 
@@ -382,49 +206,12 @@ BEGIN
 	 */
 	DECLARE @idsWhere NVARCHAR(MAX)
 
-	IF @ids IS NOT NULL
-	BEGIN
-		IF (SELECT COUNT(*) FROM @key_columns) <> 1
-		BEGIN
-			RAISERROR('@ids parameter cannot be used when there is more than one primary key column, use @where parameter instead to specify which rows to process.', 16, 1)
-			GOTO complete
-		END
+	EXEC @retval = internals.ProcessIdsParam
+		@ids = @ids,
+		@idsWhere = @idsWhere OUTPUT,
+		@key_columns = @key_columns
 
-		CREATE TABLE #ids (orderBy INT, id INT)
-
-		IF CHARINDEX('-', @ids) <> 0
-		BEGIN
-			INSERT INTO #ids (orderBy, id)
-			SELECT orderBy, id
-			FROM internals.splitIds(@ids, '-')
-
-			IF @@ROWCOUNT <> 2
-			BEGIN
-				RAISERROR('Invalid @ids parameter ''%s'', to specify a range pass in e.g. ''1-9''.', 16, 1, @ids)
-				GOTO complete
-			END
-
-			SELECT @i = 0, @idsWhere = ''
-			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[ours].' + kc.name + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
-			FROM #ids i
-			FULL OUTER JOIN @key_columns kc
-			ON 1 = 1
-			ORDER BY i.orderBy
-		END
-		ELSE
-		BEGIN
-			INSERT INTO #ids (orderBy, id)
-			SELECT orderBy, id
-			FROM internals.splitIds(@ids, ',')
-
-			SELECT @i = 0, @idsWhere = ''
-			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' OR ' END + '[ours].' + kc.name + ' = ' + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
-			FROM #ids i
-			FULL OUTER JOIN @key_columns kc
-			ON 1 = 1
-			ORDER BY i.orderBy
-		END
-	END
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 	/*
 	 * CREATE THE COMMON JOIN SQL
@@ -442,17 +229,11 @@ BEGIN
 	INNER JOIN @mapped_columns m
 	ON kc.column_id = m.column_id
 
-	DECLARE @lower NVARCHAR(MAX)
-	DECLARE @Upper NVARCHAR(MAX)
-
 	/*
 	 * THEIRS TO OURS AND OURS TO THEIRS
 	 */
 	IF @import <> 0
 	BEGIN
-		IF @import > 0 SELECT @lower = 'import', @Upper = 'Import'
-		ELSE SELECT @lower = 'export', @Upper = 'Export'
-
 		-- determine whether there is an identity column (must check this on the target side side of the data transfer)
 		DECLARE @has_identity BIT = 0
 
@@ -462,36 +243,28 @@ BEGIN
 		-- only need to work with identity columns for adds and changes, not deletes
 		IF @added_rows = 1 OR @changed_rows = 1
 		BEGIN
-			SET @params =
-				'@schema sysname,' + @CRLF +
-				'@table sysname'
-			SET @sql =
-				'SELECT c.column_id, c.name' + @CRLF +
-				'FROM %0.sys.schemas s' + @CRLF +
-				'INNER JOIN %0.sys.objects o' + @CRLF +
-				'ON o.schema_id = s.schema_id' + @CRLF +
-				'INNER JOIN %0.sys.columns c' + @CRLF +
-				'ON c.object_id = o.object_id' + @CRLF +
-				'INNER JOIN %0.sys.identity_columns ic' + @CRLF +
-				'ON ic.object_id = o.object_id' + @CRLF +
-				'AND ic.column_id = c.column_id' + @CRLF +
-				'WHERE s.name = @schema' + @CRLF +
-				'AND o.name = @table'
+			IF @import > 0
+				INSERT INTO @identity_columns (column_id, name)
+				EXEC @retval = internals.GetIdentityColumns
+					@database_part = @local_database_part,
+					@schema = @our_schema,
+					@table = @our_table
+			ELSE
+				INSERT INTO @identity_columns (column_id, name)
+				EXEC @retval = internals.GetIdentityColumns
+					@database_part = @remote_database_part,
+					@schema = @their_schema,
+					@table = @their_table
 
-			DECLARE @target_schema sysname = CASE WHEN @import > 0 THEN @our_schema ELSE @their_schema END
-			DECLARE @target_table sysname = CASE WHEN @import > 0 THEN @our_table ELSE @their_table END
-
-			SET @sql = REPLACE(@sql, '%0', CASE WHEN @import > 0 THEN @local_database_part ELSE @remote_database_part END)
-
-			INSERT INTO @identity_columns (column_id, name)
-			EXEC sp_executesql @sql, @params, @target_schema, @target_table
 			SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
-			IF @error <> 0 GOTO complete
-
+			IF @retval <> 0 OR @error <> 0 GOTO error
+			
 			IF @rowcount > 0 SET @has_identity = 1
 		END
 
+		DECLARE @actionToLower NVARCHAR(MAX) = CASE WHEN @import > 0 THEN 'import' ELSE 'export' END
+		DECLARE @actionToUpper NVARCHAR(MAX) = CASE WHEN @import > 0 THEN 'Import' ELSE 'Export' END
 		DECLARE @from sysname = CASE WHEN @import > 0 THEN '[theirs]' ELSE '[ours]' END
 		DECLARE @to sysname = CASE WHEN @import > 0 THEN '[ours]' ELSE '[theirs]' END
 
@@ -500,7 +273,7 @@ BEGIN
 		 */
 		IF @added_rows = 1
 		BEGIN
-			RAISERROR('%s%sing added rows...', 0, 1, @CRLF, @Upper)
+			RAISERROR('%s%sing added rows...', 0, 1, @CRLF, @actionToUpper)
 
 			SET @sql = CASE WHEN @has_identity = 1 THEN 'SET IDENTITY_INSERT %0 ON;' + @CRLF + @CRLF ELSE '' END
 
@@ -556,7 +329,7 @@ BEGIN
 			SET NOCOUNT ON;
 
 			IF @error = 0
-				RAISERROR('Requested %s completed with no errors. Transferred %d rows from %s into %s.', 0, 1, @lower, @rowcount, @from, @to)
+				RAISERROR('Requested %s completed with no errors. Transferred %d rows from %s into %s.', 0, 1, @actionToLower, @rowcount, @from, @to)
 		END
 
 		/*
@@ -564,7 +337,7 @@ BEGIN
 		 */
 		IF @deleted_rows = 1
 		BEGIN
-			RAISERROR('%s%sing deleted rows...', 0, 1, @CRLF, @Upper)
+			RAISERROR('%s%sing deleted rows...', 0, 1, @CRLF, @actionToUpper)
 
 			SET @sql = 'DELETE %1' + @CRLF
 
@@ -598,7 +371,7 @@ BEGIN
 			SET NOCOUNT ON;
 
 			IF @error = 0
-				RAISERROR('Requested %s completed with no errors. Deleted %d rows from %s.', 0, 1, @lower, @rowcount, @to)
+				RAISERROR('Requested %s completed with no errors. Deleted %d rows from %s.', 0, 1, @actionToLower, @rowcount, @to)
 		END
 
 		/*
@@ -606,7 +379,7 @@ BEGIN
 		 */
 		IF @changed_rows = 1
 		BEGIN
-			RAISERROR('%s%sing changed rows...', 0, 1, @CRLF, @Upper)
+			RAISERROR('%s%sing changed rows...', 0, 1, @CRLF, @actionToUpper)
 
 			SET @sql = 'UPDATE %1' + @CRLF
 
@@ -646,7 +419,7 @@ BEGIN
 			ON uc.column_id = kc.column_id
 			WHERE kc.column_id IS NULL
 
-			-- If all columns are key columns there can be no data changes
+			-- If all columns are key columns we need a dummy condition here
 			IF @@ROWCOUNT = 0 SET @SQL = @SQL + '      0 = 1 -- no non-join columns, no changes to transfer' + @CRLF
 
 			SELECT @sql = @sql + ')' + @CRLF
@@ -663,7 +436,7 @@ BEGIN
 			SET NOCOUNT ON;
 
 			IF @error = 0
-				RAISERROR('Requested %s completed with no errors. Updated %d rows in %s with data from %s.', 0, 1, @lower, @rowcount, @to, @from)
+				RAISERROR('Requested %s completed with no errors. Updated %d rows in %s with data from %s.', 0, 1, @actionToLower, @rowcount, @to, @from)
 		END
 	END
 
@@ -735,13 +508,16 @@ BEGIN
 	EXEC (@sql)
 	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
-	IF @error <> 0 GOTO complete
+	IF @error <> 0 GOTO error
 
 	IF @rowcount > 0
 		RAISERROR('Data differences found between OURS <<< %s and THEIRS >>> %s.%s - Switch to results window to view differences.%s - Call [Import|Export][Added|Deleted|Changed|All] (e.g. ImportAdded) with the same arguments to transfer changes.%s', 16, 1, @local_full_table_name, @remote_full_table_name, @CRLF, @CRLF, @CRLF)
 	ELSE
 		RAISERROR('%sNo data differences found between OURS <<< %s and THEIRS >>> %s.', 0, 1, @CRLF, @local_full_table_name, @remote_full_table_name)
 
-complete:
+	RETURN 0
+
+error:
+	RETURN -1
 END
 GO
