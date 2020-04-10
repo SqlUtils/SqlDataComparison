@@ -2,6 +2,8 @@
 
 ## Installation:
 
+[![NuGet](https://img.shields.io/nuget/v/MightyOrm.SqlDataComparison.svg)](https://nuget.org/packages/MightyOrm.SqlDataComparison)
+
 Add the NuGet package to any project to get the built files. These will appear in a new `SqlDataComparison` virtual directory (or actual directory, for older NuGet clients) in your project.
 
  - Run `Install.sql` on your development server
