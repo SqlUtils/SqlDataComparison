@@ -8,6 +8,7 @@
     <OutputCleanMaster>CleanMaster.sql</OutputCleanMaster>
     <OutputInstallTSQLt>tests\InstallTSQLt.sql</OutputInstallTSQLt>
     <OutputInstallTests>tests\InstallTests.sql</OutputInstallTests>
+    <OutputUninstallTestDbs>tests\UninstallTestDbs.sql</OutputUninstallTestDbs>
     <SourcePath>src\</SourcePath>
     <TestsPath>tests\</TestsPath>
     <LicenseFile>publish.license.template</LicenseFile>
@@ -116,7 +117,7 @@ With support for:
   </Target>
 
   <ItemGroup>
-    <InstallTestsFiles Include="$(TestsPath)test-dbs\RecreateTestDatabases.sql;$(TestsPath)test-dbs\RecreateTestTables.sql;$(TestsPath)*.sql"/>
+    <InstallTestsFiles Include="$(TestsPath)test-dbs\DropTestDatabases.sql;$(TestsPath)test-dbs\CreateTestDatabases.sql;$(TestsPath)test-dbs\RecreateTestTables.sql;$(TestsPath)*.sql"/>
   </ItemGroup>
 
   <Target Name="CreateInstallTests" Inputs="@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTests)">
@@ -132,6 +133,23 @@ With support for:
     <Message Text="Created $(OutputPath)$(OutputInstallTests)"/>
   </Target>
 
+  <ItemGroup>
+    <UninstallTestDbsFiles Include="$(TestsPath)test-dbs\DropTestDatabases.sql;"/>
+  </ItemGroup>
+
+  <Target Name="CreateUninstallTestDbs" Inputs="@(UninstallTestDbsFiles)" Outputs="$(OutputPath)$(OutputUninstallTestDbs)">
+    <ItemGroup>
+      <UninstallTestDbsFileContents Include="PRINT N'%(UninstallTestDbsFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(UninstallTestDbsFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
+    </ItemGroup>
+    <ItemGroup>
+      <UninstallTestDbsFileContents Include="PRINT N'Done.'%0d%0aGO%0d%0a"/>
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(OutputPath)$(OutputUninstallTestDbs)" Lines="@(UninstallTestDbsFileContents)" Overwrite="true" />
+
+    <Message Text="Created $(OutputPath)$(OutputUninstallTestDbs)"/>
+  </Target>
+
   <Target Name="AddReadme" Inputs="$(SourcePath)static\README.txt" Outputs="$(OutputPath)README.txt">
     <ItemGroup>
       <ReadmeContents Include="$([System.IO.File]::ReadAllText($(SourcePath)static\README.txt).Replace($(LicenseReplaceString),$(License)))"/>
@@ -143,7 +161,7 @@ With support for:
   </Target>
 
   <!-- Main build target -->
-  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;AddReadme;" />
+  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;CreateUninstallTestDbs;AddReadme;" />
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />
