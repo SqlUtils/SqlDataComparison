@@ -1,7 +1,8 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <AssemblyName>SqlDataComparison</AssemblyName>
+    <PackageId>MightyOrm.SqlDataComparison</PackageId>
+    <Version>1.0.1</Version>
     <OutputPath>build\</OutputPath>
     <OutputInstall>Install.sql</OutputInstall>
     <OutputInstallMaster>InstallMaster.sql</OutputInstallMaster>
@@ -11,31 +12,12 @@
     <OutputUninstallTestDbs>tests\UninstallTestDbs.sql</OutputUninstallTestDbs>
     <SourcePath>src\</SourcePath>
     <TestsPath>tests\</TestsPath>
+    <ContentRoot>contentFiles\any\any\</ContentRoot>
+    <ContentFolder>SqlDataComparison</ContentFolder>
+    <PackageOutputPath>pack</PackageOutputPath>
+    <PackageProjectUrl>https://github.com/MightyOrm/SqlDataComparison</PackageProjectUrl>
     <LicenseFile>publish.license.template</LicenseFile>
     <LicenseReplaceString>[[LICENSE]]</LicenseReplaceString>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <PackageId>Mighty.SqlDataComparison</PackageId>
-    <Version>1.0.0-alpha3</Version>
-    <Authors>Mike Beaton</Authors>
-    <PackageTags>SQL Server;SQL;compare data;data comparison</PackageTags>
-    <Description>Pure SQL data comparison and reconciliation utility:
-
-* `sp_comparedata 'MyTable', 'RemoteDb..MyTable'`
-* `sp_exportall 'MyTable', 'RemoteDb..MyTable'`
-* etc.
-
-With support for:
-
-* Column name remapping
-* Columns filter
-* Automatic (primary key based) or manual join columns spec
-</Description>
-    <Copyright>Copyright (c) 2020 Mike Beaton</Copyright>
-    <PackageProjectUrl>https://github.com/MightyOrm/SqlDataComparison</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/MightyOrm/SqlDataComparison/blob/master/LICENSE</PackageLicenseUrl>
-    <PackageOutputPath>pack</PackageOutputPath>
   </PropertyGroup>
 
   <Target Name="ReadLicense">
@@ -52,7 +34,7 @@ With support for:
   </ItemGroup>
 
   <!-- Concatenate files https://stackoverflow.com/a/29557615/795690 -->
-  <Target Name="CreateInstall" Inputs="@(InstallFiles)" Outputs="$(OutputPath)$(OutputInstall)">
+  <Target Name="CreateInstall" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);@(InstallFiles)" Outputs="$(OutputPath)$(OutputInstall)">
     <ItemGroup>
       <InstallFileContents Include="PRINT N'%(InstallFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -69,7 +51,7 @@ With support for:
     <InstallMasterFiles Include="$(SourcePath)master\use\UseMaster.sql;$(SourcePath)master\clean\*.sql;$(SourcePath)master\*.sql"/>
   </ItemGroup>
 
-  <Target Name="CreateInstallMaster" Inputs="@(InstallMasterFiles)" Outputs="$(OutputPath)$(OutputInstallMaster)">
+  <Target Name="CreateInstallMaster" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);@(InstallMasterFiles)" Outputs="$(OutputPath)$(OutputInstallMaster)">
     <ItemGroup>
       <InstallMasterFileContents Include="PRINT N'%(InstallMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallMasterFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -86,7 +68,7 @@ With support for:
     <CleanMasterFiles Include="$(SourcePath)master\use\UseMaster.sql;$(SourcePath)master\clean\*.sql"/>
   </ItemGroup>
 
-  <Target Name="CreateCleanMaster" Inputs="@(CleanMasterFiles)" Outputs="$(OutputPath)$(OutputCleanMaster)">
+  <Target Name="CreateCleanMaster" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);@(CleanMasterFiles)" Outputs="$(OutputPath)$(OutputCleanMaster)">
     <ItemGroup>
       <CleanMasterFileContents Include="PRINT N'%(CleanMasterFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(CleanMasterFiles.Identity)))"/>
     </ItemGroup>
@@ -103,7 +85,7 @@ With support for:
     <InstallTSQLtFiles Include="$(TestsPath)tsqlt\SetClrEnabled.sql;\OpenSource\tSQLt_V1.0.5873.27393\tSQLt.class.sql;"/>
   </ItemGroup>
 
-  <Target Name="CreateInstallTSQLt" Inputs="@(InstallTSQLtFiles)" Outputs="$(OutputPath)$(OutputInstallTSQLt)">
+  <Target Name="CreateInstallTSQLt" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);@(InstallTSQLtFiles)" Outputs="$(OutputPath)$(OutputInstallTSQLt)">
     <ItemGroup>
       <InstallTSQLtFileContents Include="PRINT N'%(InstallTSQLtFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallTSQLtFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -120,7 +102,7 @@ With support for:
     <InstallTestsFiles Include="$(TestsPath)test-dbs\DropTestDatabases.sql;$(TestsPath)test-dbs\CreateTestDatabases.sql;$(TestsPath)test-dbs\RecreateTestTables.sql;$(TestsPath)*.sql"/>
   </ItemGroup>
 
-  <Target Name="CreateInstallTests" Inputs="@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTests)">
+  <Target Name="CreateInstallTests" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTests)">
     <ItemGroup>
       <InstallTestsFileContents Include="PRINT N'%(InstallTestsFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(InstallTestsFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -137,7 +119,7 @@ With support for:
     <UninstallTestDbsFiles Include="$(TestsPath)test-dbs\DropTestDatabases.sql;"/>
   </ItemGroup>
 
-  <Target Name="CreateUninstallTestDbs" Inputs="@(UninstallTestDbsFiles)" Outputs="$(OutputPath)$(OutputUninstallTestDbs)">
+  <Target Name="CreateUninstallTestDbs" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);@(UninstallTestDbsFiles)" Outputs="$(OutputPath)$(OutputUninstallTestDbs)">
     <ItemGroup>
       <UninstallTestDbsFileContents Include="PRINT N'%(UninstallTestDbsFiles.Identity)...'%0d%0aGO%0d%0a$([System.IO.File]::ReadAllText(%(UninstallTestDbsFiles.Identity)).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -150,7 +132,7 @@ With support for:
     <Message Text="Created $(OutputPath)$(OutputUninstallTestDbs)"/>
   </Target>
 
-  <Target Name="AddReadme" Inputs="$(SourcePath)static\README.txt" Outputs="$(OutputPath)README.txt">
+  <Target Name="AddReadme" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);$(SourcePath)static\README.txt" Outputs="$(OutputPath)README.txt">
     <ItemGroup>
       <ReadmeContents Include="$([System.IO.File]::ReadAllText($(SourcePath)static\README.txt).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
@@ -161,7 +143,11 @@ With support for:
   </Target>
 
   <!-- Main build target -->
-  <Target Name="Build"  DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;CreateUninstallTestDbs;AddReadme;" />
+  <Target Name="Build" DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;CreateUninstallTestDbs;AddReadme;" />
+
+  <Target Name="Pack" DependsOnTargets="Build" Inputs="$(OutputPath)$(OutputUninstallTestDbs)" Outputs="$(PackageOutputPath)\$(PackageId).$(Version).nupkg">
+    <Exec Command="nuget pack -Version $(Version) -OutputDirectory $(PackageOutputPath)" />
+  </Target>
 
   <Target Name="Clean">
     <RemoveDir Directories="$(OutputPath)" Condition="Exists('$(OutputPath)')" />

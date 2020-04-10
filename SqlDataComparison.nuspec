@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<package>
+  <metadata minClientVersion="3.3.0">
+    <id>MightyOrm.SqlDataComparison</id>
+    <version>0.0.0</version>
+    <authors>Mike Beaton</authors>
+    <owners>Mike Beaton</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Pure SQL data comparison and reconciliation utility for SQL Server
+
+Example usage:
+
+* EXEC sp_CompareData 'MyTable', 'RemoteDb..TheirTable'
+* EXEC sp_ExportAll 'MyTable', 'RemoteDb..TheirTable'
+* EXEC sp_ExportDeleted 'MyTable', 'RemoteDb..TheirTable'
+* EXEC sp_ExportDeleted 'MyTable', 'RemoteDb..TheirTable', @ids = '43-44'
+
+Supports:
+
+* Column name remapping
+* Columns filter
+* Automatic primary key based or manual join columns spec
+* And more...
+</description>
+    <tags>SQL Server;SQL;compare data;data comparison</tags>
+    <copyright>Copyright (c) 2020 Mike Beaton</copyright>
+    <projectUrl>https://github.com/MightyOrm/SqlDataComparison</projectUrl>
+    <licenseUrl>https://github.com/MightyOrm/SqlDataComparison/blob/master/LICENSE</licenseUrl>
+    <contentFiles>
+      <!-- new style projects -->
+      <files include="**/SqlDataComparison/*.*" buildAction="None" />
+    </contentFiles>
+  </metadata>
+  <files>
+    <!-- new style projects -->
+    <file src="build\Install.sql" target="contentFiles\any\any\SqlDataComparison" />
+    <file src="build\InstallMaster.sql" target="contentFiles\any\any\SqlDataComparison" />
+    <file src="build\CleanMaster.sql" target="contentFiles\any\any\SqlDataComparison" />
+    <file src="build\README.txt" target="contentFiles\any\any\SqlDataComparison" />
+
+    <!-- old style projects -->
+    <file src="build\Install.sql" target="content\SqlDataComparison" />
+    <file src="build\InstallMaster.sql" target="content\SqlDataComparison" />
+    <file src="build\CleanMaster.sql" target="content\SqlDataComparison" />
+    <file src="build\README.txt" target="content\SqlDataComparison" />
+  </files>
+</package>
