@@ -147,6 +147,7 @@
 
   <Target Name="Pack" DependsOnTargets="Build" Inputs="$(OutputPath)$(OutputUninstallTestDbs)" Outputs="$(PackageOutputPath)\$(PackageId).$(Version).nupkg">
     <Exec Command="nuget pack -Version $(Version) -OutputDirectory $(PackageOutputPath)" />
+    <Exec Command="7z a -tzip pack/SqlDataComparison.$(Version).zip .\build\* -x!tests*" />
   </Target>
 
   <Target Name="Clean">
