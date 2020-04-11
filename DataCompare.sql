@@ -202,7 +202,7 @@ BEGIN
 
 	SET @SQL = 'SELECT '
 
-	SET @SQL = @SQL + '''OURS >>>'' AS [ ],' + @CRLF
+	SET @SQL = @SQL + '''OURS <<<'' AS [ ],' + @CRLF
 	SELECT @SQL = @SQL + @TAB + '   [ours].[' + #columns.name + '],' + @CRLF
 	FROM #columns
 
@@ -239,9 +239,9 @@ BEGIN
 	EXEC (@SQL)
 
 	IF @@ROWCOUNT > 0
-		RAISERROR('Data differences found between OURS >>> %s and THEIRS >>> %s.%sSwitch to results window to view differences.%s - Call again with @import_theirs_to_ours or @import_ours_to_theirs set to transfer changes.%s - Differences in rows which are in both need to be resolved by hand.', 16, 1, @local_table_name, @remote_table_name, @CRLF, @CRLF, @CRLF)
+		RAISERROR('Data differences found between OURS <<< %s and THEIRS >>> %s.%sSwitch to results window to view differences.%s - Call again with @import_theirs_to_ours or @import_ours_to_theirs set to transfer changes.%s - Differences in rows which are in both need to be resolved by hand.', 16, 1, @local_table_name, @remote_table_name, @CRLF, @CRLF, @CRLF)
 	ELSE
-		RAISERROR('No data differences found between OURS >>> %s and THEIRS >>> %s.', 0, 1, @local_table_name, @remote_table_name)
+		RAISERROR('No data differences found between OURS <<< %s and THEIRS >>> %s.', 0, 1, @local_table_name, @remote_table_name)
 
 complete:
 END
