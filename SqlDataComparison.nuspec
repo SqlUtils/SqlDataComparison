@@ -25,7 +25,7 @@ Supports:
     <tags>SQL Server;SQL;compare data;data comparison</tags>
     <copyright>Copyright (c) 2020 Mike Beaton</copyright>
     <projectUrl>https://github.com/MightyOrm/SqlDataComparison</projectUrl>
-    <licenseUrl>https://github.com/MightyOrm/SqlDataComparison/blob/master/LICENSE</licenseUrl>
+    <license type="expression">MIT</license>
     <contentFiles>
       <!-- new style projects -->
       <files include="**/SqlDataComparison/*.*" buildAction="None" />
