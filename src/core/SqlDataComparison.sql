@@ -70,6 +70,16 @@ BEGIN
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
+	EXEC @retval = internals.ValidateTable
+		@server = @our_server,
+		@database = @our_database,
+		@schema = @our_schema,
+		@table = @our_table,
+		@database_part = @our_database_part,
+		@full_table_name = @our_full_table_name
+
+	IF @retval <> -0 OR @@ERROR <> 0 GOTO error
+
 	/*
 	 * parse @theirTableName
 	 */
@@ -93,13 +103,23 @@ BEGIN
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
+	EXEC @retval = internals.ValidateTable
+		@server = @their_server,
+		@database = @their_database,
+		@schema = @their_schema,
+		@table = @their_table,
+		@database_part = @their_database_part,
+		@full_table_name = @their_full_table_name
+
+	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
+
 	/*
 	 * Load local columns
 	 */
 	DECLARE @our_columns internals.ColumnsTable
 
 	INSERT INTO @our_columns (column_id, name)
-	EXEC @retval = internals.ValidateTableAndLoadColumnNames
+	EXEC @retval = internals.GetColumns
 		@database_part = @our_database_part,
 		@schema = @our_schema,
 		@table = @our_table,
@@ -126,7 +146,7 @@ BEGIN
 	DECLARE @their_columns internals.ColumnsTable
 
 	INSERT INTO @their_columns (column_id, name)
-	EXEC @retval = internals.ValidateTableAndLoadColumnNames
+	EXEC @retval = internals.GetColumns
 		@database_part = @their_database_part,
 		@schema = @their_schema,
 		@table = @their_table,

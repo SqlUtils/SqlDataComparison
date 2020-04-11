@@ -3,10 +3,12 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
-CREATE PROCEDURE [internals].[ValidateTableAndLoadColumnNames]
-	@database_part SYSNAME,
+CREATE PROCEDURE [internals].[ValidateTable]
+	@server SYSNAME,
+	@database SYSNAME,
 	@schema SYSNAME,
 	@table SYSNAME,
+	@database_part SYSNAME,
 	@full_table_name SYSNAME
 AS
 BEGIN
@@ -14,7 +16,6 @@ BEGIN
 
 	-- used for building readable SQL
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
-	DECLARE @TAB CHAR(1) = CHAR(9)
 
 	-- loop var
 	DECLARE @i INT
@@ -30,13 +31,26 @@ BEGIN
 	/*
 	 * Check for database existence
 	 */
-	SELECT @rowcount = COUNT(*)
-	FROM sys.databases
-	WHERE name = PARSENAME(@database_part, 1)
+	SET @params =
+		'@rowcount int output'
+	SET @sql = 
+		'SELECT @rowcount = COUNT(*)' + @CRLF +
+		'FROM ' + ISNULL(QUOTENAME(@server) + '.', '') + 'master.sys.databases' + @CRLF +
+		'WHERE name = ' + QUOTENAME(@database, '''')
+
+	EXEC sp_executesql @sql, @params, @rowcount OUTPUT
+	SET @error = @@ERROR
+
+	IF @error <> 0
+	BEGIN
+		GOTO error
+	END
 
 	IF @rowcount <> 1
 	BEGIN
-		RAISERROR('Cannot find database %s', 16, 1, @database_part)
+		DECLARE @serverInfo NVARCHAR(MAX) = ISNULL(' on linked server ' + QUOTENAME(@server), '')
+		DECLARE @databaseInfo NVARCHAR(MAX) = QUOTENAME(@database)
+		RAISERROR('Cannot find database %s%s', 16, 1, @databaseInfo, @serverInfo)
 		GOTO error
 	END
 
@@ -64,33 +78,6 @@ BEGIN
 	IF @rowcount = 0
 	BEGIN
 		RAISERROR('Cannot find table %s', 16, 1, @full_table_name)
-		GOTO error
-	END
-
-	/*
-	 * Get local table columns
-	 */
-	SET @params =
-		'@schema sysname,' + @CRLF +
-		'@table sysname'
-	SET @sql =
-		'SELECT c.column_id, c.name' + @CRLF +
-		'FROM ' + @database_part + '.sys.objects o' + @CRLF +
-		'INNER JOIN ' + @database_part + '.sys.schemas s' + @CRLF +
-		'ON o.schema_id = s.schema_id' + @CRLF +
-		'AND s.name = @schema' + @CRLF +
-		'INNER JOIN ' + @database_part + '.sys.columns c' + @CRLF +
-		'ON o.object_id = c.object_id' + @CRLF +
-		'WHERE o.name = @table'
-		
-	EXEC sp_executesql @sql, @params, @schema, @table
-	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
-
-	IF @error <> 0 GOTO error
-
-	IF @rowcount = 0
-	BEGIN
-		RAISERROR('There are no columns for table %s', 16, 1, @full_table_name)
 		GOTO error
 	END
 
