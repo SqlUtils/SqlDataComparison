@@ -36,7 +36,7 @@ AS
 BEGIN
 	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @theirTableName = ''''', 16, 1
 
-	EXEC CompareData 'a..a', ''
+	EXEC CompareData 'SQLUtilsTests_A..AddressTypes', ''
 END
 GO
 
@@ -54,7 +54,7 @@ AS
 BEGIN
 	EXEC tSQLt.ExpectException 'Invalid or missing table name in parameter @theirTableName = ''b..''', 16, 1
 
-	EXEC CompareData 'a..a', 'b..'
+	EXEC CompareData 'SQLUtilsTests_A..AddressTypes', 'b..'
 END
 GO
 
@@ -72,6 +72,6 @@ AS
 BEGIN
 	EXEC tSQLt.ExpectException 'Invalid or missing database name in parameter @theirTableName = ''b''', 16, 1
 
-	EXEC CompareData 'a..a', 'b'
+	EXEC CompareData 'SQLUtilsTests_A..AddressTypes', 'b'
 END
 GO
