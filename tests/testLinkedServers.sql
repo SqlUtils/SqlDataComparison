@@ -1,13 +1,10 @@
 USE master
 GO
 
-IF EXISTS(select * from sys.servers where is_linked = 1 and name = 'localhost')
+IF NOT EXISTS(select * from sys.servers where is_linked = 1 and name = 'localhost')
 BEGIN
-	EXEC sp_dropserver 'localhost'
+  EXEC sp_addlinkedserver @server = 'localhost', @srvproduct = 'SQL Server'
 END
-GO
-
-EXEC sp_addlinkedserver @server = 'localhost', @srvproduct = 'SQL Server'
 GO
 
 USE SqlUtils
