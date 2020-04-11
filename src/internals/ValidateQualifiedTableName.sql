@@ -18,7 +18,7 @@ BEGIN
 	SET NOCOUNT ON;
 	SELECT
 		@server = PARSENAME(@qualified_table_name, 4),
-		@database = ISNULL(PARSENAME(@qualified_table_name, 3), @defaultDbName),
+		@database = ISNULL(PARSENAME(@qualified_table_name, 3), CASE WHEN @server IS NOT NULL THEN NULL ELSE @defaultDbName END),
 		@schema = ISNULL(PARSENAME(@qualified_table_name, 2), 'dbo'),
 		@table = PARSENAME(@qualified_table_name, 1)
 

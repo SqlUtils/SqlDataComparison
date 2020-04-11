@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageId>MightyOrm.SqlDataComparison</PackageId>
-    <Version>1.0.2-alpha2</Version>
+    <Version>1.0.2-alpha3</Version>
     <OutputPath>build\</OutputPath>
     <OutputInstall>Install.sql</OutputInstall>
     <OutputInstallMaster>InstallMaster.sql</OutputInstallMaster>
