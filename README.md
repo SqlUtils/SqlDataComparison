@@ -4,10 +4,15 @@
 
 [![NuGet](https://img.shields.io/nuget/v/MightyOrm.SqlDataComparison.svg)](https://nuget.org/packages/MightyOrm.SqlDataComparison)
 
-Add the NuGet package to any project to get the built files. These will appear in a new `SqlDataComparison` virtual directory (or actual directory, for older NuGet clients) in your project.
+To get the release files:
 
- - Run `Install.sql` on your development server
- - Optionally run `InstallMaster.sql` on your *development* server to add thin wrapper commands in the master database which can detect the current database, see below
+ - Either download then unzip the [latest release](https://github.com/MightyOrm/SqlDataComparison/releases) hosted here
+ - Or add the current [NuGet package](https://nuget.org/packages/MightyOrm.SqlDataComparison) to any .NET Core or .NET Framework project; the release files will automatically appear in a new `SqlDataComparison` virtual directory (or actual directory, for older NuGet clients) in your project
+
+Then:
+
+ - Run `Install.sql` on your development SQL Server
+ - Optionally also run `InstallMaster.sql` on your *development* server, to add thin wrapper commands in the master database which can detect the current database, see below
 
 Do not use `InstallMaster.sql` on a production server - this is normal SQL Server good practice.
 
