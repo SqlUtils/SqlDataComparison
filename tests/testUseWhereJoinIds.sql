@@ -77,22 +77,23 @@ CREATE PROCEDURE testUseWhereJoinIds.[test ImportChanged with all join columns w
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
+	DECLARE @rowcount INT
 
 	EXEC tSQLt.CaptureOutput 'EXEC ImportChanged ''SqlUtilsTests_A..CountryTable'', ''SqlUtilsTests_C..CountryList'', @use=''countryid, country'', @showSql = 1'
 	EXEC tSQLt.CaptureOutput 'EXEC ImportChanged ''SqlUtilsTests_A..CountryTable'', ''SqlUtilsTests_C..CountryList'', @use=''countryid, country'', @join=''countryid, country'', @showSql = 1'
 
 	-- two rows
-	SELECT *
+	SELECT @rowcount = COUNT(*)
 	FROM SqlUtils.tSQLt.CaptureOutputLog
 
-	EXEC tSQLt.AssertEquals 2, @@ROWCOUNT
+	EXEC tSQLt.AssertEquals 2, @rowcount
 
 	-- both did no updates
-	SELECT *
+	SELECT @rowcount = COUNT(*)
 	FROM SqlUtils.tSQLt.CaptureOutputLog
 	WHERE OutputText LIKE '%Updated 0 rows%'
 
-	EXEC tSQLt.AssertEquals 2, @@ROWCOUNT
+	EXEC tSQLt.AssertEquals 2, @rowcount
 
 	-- second row has special SQL required for all join columns situation
 	DECLARE @id INT
