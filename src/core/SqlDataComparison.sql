@@ -229,7 +229,8 @@ BEGIN
 	EXEC @retval = internals.ProcessIdsParam
 		@ids = @ids,
 		@idsWhere = @idsWhere OUTPUT,
-		@key_columns = @key_columns
+		@key_columns = @key_columns,
+		@mapped_columns = @mapped_columns
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 

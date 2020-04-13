@@ -17,7 +17,39 @@ BEGIN
 	EXEC tSQLt.ExpectException @Message, 16, 1
 
 	EXEC CompareData 'SqlUtilsTests_A..AddressTypes', 'SqlUtilsTests_C..AddressMatch', @map = 'AddressTypeID,ID;AddressType,Type'
+END
+GO
 
+CREATE PROCEDURE testMapping.[test map plus ids param works]
+AS
+BEGIN
+	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
+
+	-- make mismatches on both sides
+	SET IDENTITY_INSERT SqlUtilsTests_A.dbo.AddressTypes ON;
+	INSERT INTO SqlUtilsTests_A.dbo.AddressTypes (AddressTypeID, AddressType)
+	VALUES (3, 'Work')
+	SET IDENTITY_INSERT SqlUtilsTests_A.dbo.AddressTypes OFF;
+	DELETE FROM SqlUtilsTests_C..AddressMatch WHERE ID = 3
+	UPDATE SqlUtilsTests_A.dbo.AddressTypes SET AddressType = 'Test' WHERE AddressTypeID = 1
+
+	EXEC tSQLt.CaptureOutput 'EXEC ImportAll ''SqlUtilsTests_A..AddressTypes'', ''SqlUtilsTests_C..AddressMatch'', @map = ''AddressTypeID,ID;AddressType,Type'', @ids = ''1-3'''
+	SELECT CAST (
+		@CRLF +
+		'Importing added rows...' + @CRLF +
+		'Requested import completed with no errors. Transferred 1 rows from [theirs] into [ours].' + @CRLF +
+		'' + @CRLF +
+		'Importing deleted rows...' + @CRLF +
+		'Requested import completed with no errors. Deleted 1 rows from [ours].' + @CRLF +
+		'' + @CRLF +
+		'Importing changed rows...' + @CRLF +
+		'Requested import completed with no errors. Updated 1 rows in [ours] with data from [theirs].' + @CRLF +
+		'' + @CRLF +
+		'No data differences found between OURS <<< [SqlUtilsTests_A].[dbo].[AddressTypes] and THEIRS >>> [SqlUtilsTests_C].[dbo].[AddressMatch].' + @CRLF
+		AS NVARCHAR(MAX)) AS OutputText
+	INTO #TestOutput
+
+	EXEC tSQLt.AssertEqualsTable '#TestOutput', 'SqlUtils.tSQLt.CaptureOutputLog'
 END
 GO
 

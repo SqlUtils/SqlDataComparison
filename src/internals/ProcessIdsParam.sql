@@ -6,7 +6,8 @@ GO
 CREATE PROCEDURE [internals].[ProcessIdsParam]
 	@ids NVARCHAR(MAX),
 	@idsWhere NVARCHAR(MAX) OUTPUT,
-	@key_columns internals.ColumnsTable READONLY
+	@key_columns internals.ColumnsTable READONLY,
+	@mapped_columns internals.ColumnsTable READONLY
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -47,13 +48,25 @@ BEGIN
 				GOTO error
 			END
 
-			SELECT @i = 0, @idsWhere = ''
+			SELECT @i = 0, @idsWhere = '('
 
-			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[ours].' + kc.name + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
+			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[ours].' + QUOTENAME(kc.name) + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
 			FROM #ids i
 			FULL OUTER JOIN @key_columns kc
 			ON 1 = 1
 			ORDER BY i.orderBy
+
+			SELECT @i = 0, @idsWhere = @idsWhere + ') OR ('
+
+			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[theirs].' + QUOTENAME(m.name) + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
+			FROM #ids i
+			FULL OUTER JOIN @key_columns kc
+			ON 1 = 1
+			INNER JOIN @mapped_columns m
+			ON kc.column_id = m.column_id
+			ORDER BY i.orderBy
+
+			SELECT @i = 0, @idsWhere = @idsWhere + ')'
 		END
 		ELSE
 		BEGIN
@@ -76,10 +89,18 @@ BEGIN
 
 			SELECT @i = 0, @idsWhere = ''
 
-			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' OR ' END + '[ours].' + kc.name + ' = ' + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
+			SELECT @idsWhere =
+				@idsWhere +
+				CASE WHEN @i = 0 THEN '' ELSE ' OR ' END +
+				'[ours].' + QUOTENAME(kc.name) + ' = ' + CAST(i.id AS NVARCHAR(MAX)) +
+				' OR ' +
+				'[theirs].' + QUOTENAME(m.name) + ' = ' + CAST(i.id AS NVARCHAR(MAX)),
+				@i = @i + 1
 			FROM #ids i
 			FULL OUTER JOIN @key_columns kc
 			ON 1 = 1
+			INNER JOIN @mapped_columns m
+			ON kc.column_id = m.column_id
 			ORDER BY i.orderBy
 		END
 	END

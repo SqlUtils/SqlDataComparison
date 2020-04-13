@@ -4,7 +4,7 @@ GO
 EXEC tSQLt.NewTestClass 'testIds';
 GO
 
-CREATE PROCEDURE testIds.[test basic ids set param works]
+CREATE PROCEDURE testIds.[test ids set param works when right side is NULL]
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
@@ -16,12 +16,27 @@ BEGIN
 
 	EXEC tSQLt.ExpectException @Message, 16, 1
 
-	-- TO DO: This needs to work whichever side @ids matches on, but currently only checks ours side
 	EXEC CompareData 'SqlUtilsTests_B..AddressTypes', 'SqlUtilsTests_A..AddressTypes', @ids = '2'
 END
 GO
 
-CREATE PROCEDURE testIds.[test basic ids range param works]
+CREATE PROCEDURE testIds.[test ids set param works when left side is NULL]
+AS
+BEGIN
+	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
+
+	DECLARE @Message NVARCHAR(MAX) =
+		'Data differences found between OURS <<< [SqlUtilsTests_A].[dbo].[AddressTypes] and THEIRS >>> [SqlUtilsTests_B].[dbo].[AddressTypes].' + @CRLF +
+		' - Switch to results window to view differences.' + @CRLF +
+		' - Call [Import|Export][Added|Deleted|Changed|All] (e.g. ImportAdded) with the same arguments to transfer changes.' + @CRLF
+
+	EXEC tSQLt.ExpectException @Message, 16, 1
+
+	EXEC CompareData 'SqlUtilsTests_A..AddressTypes', 'SqlUtilsTests_B..AddressTypes', @ids = '2'
+END
+GO
+
+CREATE PROCEDURE testIds.[test ids range param works when right side is null]
 AS
 BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
@@ -33,8 +48,23 @@ BEGIN
 
 	EXEC tSQLt.ExpectException @Message, 16, 1
 
-	-- TO DO: This needs to work whichever side @ids matches on, but currently only checks ours side
 	EXEC CompareData 'SqlUtilsTests_B..AddressTypes', 'SqlUtilsTests_A..AddressTypes', @ids = '1-2'
+END
+GO
+
+CREATE PROCEDURE testIds.[test ids range param works when left side is null]
+AS
+BEGIN
+	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
+
+	DECLARE @Message NVARCHAR(MAX) =
+		'Data differences found between OURS <<< [SqlUtilsTests_A].[dbo].[AddressTypes] and THEIRS >>> [SqlUtilsTests_B].[dbo].[AddressTypes].' + @CRLF +
+		' - Switch to results window to view differences.' + @CRLF +
+		' - Call [Import|Export][Added|Deleted|Changed|All] (e.g. ImportAdded) with the same arguments to transfer changes.' + @CRLF
+
+	EXEC tSQLt.ExpectException @Message, 16, 1
+
+	EXEC CompareData 'SqlUtilsTests_A..AddressTypes', 'SqlUtilsTests_B..AddressTypes', @ids = '1-2'
 END
 GO
 
