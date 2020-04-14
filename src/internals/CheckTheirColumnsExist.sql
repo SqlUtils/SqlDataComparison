@@ -7,7 +7,7 @@ CREATE PROCEDURE [internals].[CheckTheirColumnsExist]
 	@use_columns internals.ColumnsTable READONLY,
 	@mapped_columns internals.ColumnsTable READONLY,
 	@their_columns internals.ColumnsTable READONLY,
-	@their_full_table_name SYSNAME
+	@their_full_table_name internals.FourPartQuotedName
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -17,15 +17,15 @@ BEGIN
 
 	DECLARE @mapped_use_columns internals.ColumnsTable
 
-	INSERT INTO @mapped_use_columns (name)
-	SELECT m.name
-	FROM @use_columns u
+	INSERT INTO @mapped_use_columns (quotedName)
+	SELECT m.quotedName
+	FROM @use_columns uc
 	INNER JOIN @mapped_columns m
-	ON u.column_id = m.column_id
+	ON uc.column_id = m.column_id
 
 	EXEC @retval = internals.ValidateColumns
 		@mapped_use_columns, @their_columns,
-		'[', ']', -- use [] to quote these names, as we know they exist locally
+		'', '', -- don't 'air-quote' the names in the warning in this case, as we know they exist locally
 		'Required column %s does not exist in %s',
 		'Required columns %s do not exist in %s',
 		@their_full_table_name

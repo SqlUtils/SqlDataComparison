@@ -4,8 +4,8 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE sp_ImportDeleted
-	@ourTableName sysname,
-	@theirTableName sysname,
+	@ourTableName internals.FourPartQuotedName,
+	@theirTableName internals.FourPartQuotedName,
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
@@ -17,10 +17,10 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	DECLARE @defaultDbName sysname = DB_NAME()
+	DECLARE @default_db_name sysname = DB_NAME()
 
 	EXEC SqlUtils.core.SqlDataComparison
-		@defaultDbName = @defaultDbName,
+		@default_db_name = @default_db_name,
 		@ourTableName = @ourTableName,
 		@theirTableName = @theirTableName,
 		@map = @map,

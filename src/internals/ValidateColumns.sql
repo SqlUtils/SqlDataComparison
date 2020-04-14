@@ -21,19 +21,19 @@ BEGIN
 
 	-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
 	SET @rowcount = 0;
-	WITH IllegalColumns_CTE (name)
+	WITH IllegalColumns_CTE (quotedName)
 	AS
 	(
-		SELECT t.name
+		SELECT t.quotedName
 		FROM @test_columns t
 		LEFT OUTER JOIN @allowed_columns c
-		ON t.name = c.name
-		WHERE c.name IS NULL
+		ON t.quotedName = c.quotedName
+		WHERE c.quotedName IS NULL
 	)
 	SELECT
 		@illegal_columns = STUFF(
 		(
-			SELECT ', ' + @msg_lquot + name + @msg_rquot
+			SELECT ', ' + @msg_lquot + quotedName + @msg_rquot
 			FROM IllegalColumns_CTE
 			FOR XML PATH('')
 		), 1, 2, ''),

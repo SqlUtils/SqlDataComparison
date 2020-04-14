@@ -4,7 +4,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [internals].[GetIdentityColumns]
-	@database_part SYSNAME,
+	@database_part internals.QuotedServerPlusTableName,
 	@schema SYSNAME,
 	@table SYSNAME
 AS
@@ -22,7 +22,7 @@ BEGIN
 		'@schema sysname,' + @CRLF +
 		'@table sysname'
 	SET @sql =
-		'SELECT c.column_id, c.name' + @CRLF +
+		'SELECT c.column_id, QUOTENAME(c.name) AS quotedName' + @CRLF +
 		'FROM ' + @database_part + '.sys.schemas s' + @CRLF +
 		'INNER JOIN ' + @database_part + '.sys.objects o' + @CRLF +
 		'ON o.schema_id = s.schema_id' + @CRLF +

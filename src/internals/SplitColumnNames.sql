@@ -5,11 +5,11 @@ GO
 /*[[LICENSE]]*/
 CREATE FUNCTION [internals].[SplitColumnNames] (
 	@columnNames NVARCHAR(MAX)
-) RETURNS @columnNamesTable TABLE (name sysname not null)
+) RETURNS @columnNamesTable TABLE (quoteName internals.QuotedName not null)
 AS
 BEGIN
 	DECLARE @index int
-	DECLARE @column sysname
+	DECLARE @column NVARCHAR(MAX)
 	DECLARE @server sysname
 	DECLARE @database sysname
 	DECLARE @schema sysname
@@ -32,7 +32,7 @@ BEGIN
 		IF (@server IS NOT NULL OR @database IS NOT NULL OR @schema IS NOT NULL)
 			SET @column = NULL
 
-		INSERT INTO @columnNamesTable SELECT @column
+		INSERT INTO @columnNamesTable SELECT QUOTENAME(@column)
 
 		IF @done = 0
 			SET @columnNames = SUBSTRING(@columnNames, @index + 1, LEN(@columnNames))

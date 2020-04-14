@@ -11,7 +11,7 @@ AS
 BEGIN
 	DECLARE @index int
 	DECLARE @orderBy int = 0
-	DECLARE @id sysname
+	DECLARE @id NVARCHAR(MAX)
 	DECLARE @done bit = 0
 
 	WHILE @done = 0

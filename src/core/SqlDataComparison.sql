@@ -4,9 +4,9 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [core].[SqlDataComparison]
-	@ourTableName sysname,
-	@theirTableName sysname,
-	@defaultDbName sysname = null,
+	@ourTableName internals.FourPartQuotedName, -- 4 part name, all parts quoted, worst case length
+	@theirTableName internals.FourPartQuotedName,
+	@default_db_name sysname = null,
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
@@ -54,12 +54,12 @@ BEGIN
 	DECLARE @our_database sysname
 	DECLARE @our_schema sysname
 	DECLARE @our_table sysname
-	DECLARE @our_database_part sysname
-	DECLARE @our_full_table_name sysname
+	DECLARE @our_database_part internals.QuotedServerPlusTableName
+	DECLARE @our_full_table_name internals.FourPartQuotedName
 
 	EXEC @retval = internals.ValidateQualifiedTableName
 		@qualified_table_name = @ourTableName,
-		@defaultDbName = @defaultDbName,
+		@default_db_name = @default_db_name,
 		@server = @our_server OUTPUT,
 		@database = @our_database OUTPUT,
 		@schema = @our_schema OUTPUT,
@@ -87,8 +87,8 @@ BEGIN
 	DECLARE @their_database sysname
 	DECLARE @their_schema sysname
 	DECLARE @their_table sysname
-	DECLARE @their_database_part sysname
-	DECLARE @their_full_table_name sysname
+	DECLARE @their_database_part internals.QuotedServerPlusTableName
+	DECLARE @their_full_table_name internals.FourPartQuotedName
 
 	-- do not apply default database name to theirs (it becomes more confusing than helpful when user sends db.table instead of db..table by mistake)
 	EXEC @retval = internals.ValidateQualifiedTableName
@@ -118,7 +118,7 @@ BEGIN
 	 */
 	DECLARE @our_columns internals.ColumnsTable
 
-	INSERT INTO @our_columns (column_id, name)
+	INSERT INTO @our_columns (column_id, quotedName)
 	EXEC @retval = internals.GetColumns
 		@database_part = @our_database_part,
 		@schema = @our_schema,
@@ -132,7 +132,7 @@ BEGIN
 	 */
 	DECLARE @use_columns internals.ColumnsTable
 
-	INSERT INTO @use_columns (column_id, name)
+	INSERT INTO @use_columns (column_id, quotedName)
 	EXEC @retval = internals.ProcessUseParam
 		@use = @use,
 		@our_columns = @our_columns,
@@ -145,7 +145,7 @@ BEGIN
 	 */
 	DECLARE @their_columns internals.ColumnsTable
 
-	INSERT INTO @their_columns (column_id, name)
+	INSERT INTO @their_columns (column_id, quotedName)
 	EXEC @retval = internals.GetColumns
 		@database_part = @their_database_part,
 		@schema = @their_schema,
@@ -160,7 +160,7 @@ BEGIN
 	-- NB @mapped_columns contains local column id with mapped remote column name
 	DECLARE @mapped_columns internals.ColumnsTable
 
-	INSERT INTO @mapped_columns (column_id, name)
+	INSERT INTO @mapped_columns (column_id, quotedName)
 	EXEC @retval = internals.ProcessMapParam
 		@map = @map,
 		@our_columns = @our_columns,
@@ -191,7 +191,7 @@ BEGIN
 		/*
 		 * Use @join for join instead of table primary keys, if provided
 		 */
-		INSERT INTO @key_columns (column_id, name)
+		INSERT INTO @key_columns (column_id, quotedName)
 		EXEC @retval = internals.ProcessJoinParam
 			@join = @join,
 			@use_columns = @use_columns,
@@ -204,7 +204,7 @@ BEGIN
 		/*
 		 * Load our table primary key columns
 		 */
-		INSERT INTO @key_columns (column_id, name)
+		INSERT INTO @key_columns (column_id, quotedName)
 		EXEC @retval = internals.GetPrimaryKeyColumns
 			@database_part = @our_database_part,
 			@schema = @our_schema,
@@ -244,7 +244,7 @@ BEGIN
 
 	SET @i = 0
 	SELECT
-		@join_sql = @join_sql + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].[' + kc.name + '] = [theirs].[' + m.name + ']' + @CRLF,
+		@join_sql = @join_sql + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].' + kc.quotedName + ' = [theirs].' + m.quotedName + '' + @CRLF,
 		@i = @i + 1
 	FROM @key_columns kc
 	INNER JOIN @mapped_columns m
@@ -265,13 +265,13 @@ BEGIN
 		IF @added_rows = 1 OR @changed_rows = 1
 		BEGIN
 			IF @import > 0
-				INSERT INTO @identity_columns (column_id, name)
+				INSERT INTO @identity_columns (column_id, quotedName)
 				EXEC @retval = internals.GetIdentityColumns
 					@database_part = @our_database_part,
 					@schema = @our_schema,
 					@table = @our_table
 			ELSE
-				INSERT INTO @identity_columns (column_id, name)
+				INSERT INTO @identity_columns (column_id, quotedName)
 				EXEC @retval = internals.GetIdentityColumns
 					@database_part = @their_database_part,
 					@schema = @their_schema,
@@ -300,7 +300,7 @@ BEGIN
 
 			SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '[' + CASE WHEN @import > 0 THEN uc.name ELSE m.name END + '],' + @CRLF
+			SELECT @sql = @sql + @TAB + CASE WHEN @import > 0 THEN uc.quotedName ELSE m.quotedName END + ',' + @CRLF
 			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
 			ON uc.column_id = m.column_id
@@ -311,7 +311,7 @@ BEGIN
 
 			SELECT @sql = @sql + 'SELECT' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '%2.[' + CASE WHEN @import > 0 THEN m.name ELSE uc.name END + '],' + @CRLF
+			SELECT @sql = @sql + @TAB + '%2.' + CASE WHEN @import > 0 THEN m.quotedName ELSE uc.quotedName END + ',' + @CRLF
 			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
 			ON uc.column_id = m.column_id
@@ -330,7 +330,7 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN '      ' ELSE '  AND ' END +
-					'%1.[' + CASE WHEN @import > 0 THEN kc.name ELSE m.name END + '] IS NULL' + @CRLF,
+					'%1.' + CASE WHEN @import > 0 THEN kc.quotedName ELSE m.quotedName END + ' IS NULL' + @CRLF,
 				@i = @i + 1
 			FROM @key_columns kc
 			INNER JOIN @mapped_columns m
@@ -374,7 +374,7 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
-					'(%1.[' + CASE WHEN @import > 0 THEN kc.name ELSE m.name END + '] IS NOT NULL AND %2.[' + CASE WHEN @import > 0 THEN m.name ELSE kc.name END + '] IS NULL)' + @CRLF,
+					'(%1.' + CASE WHEN @import > 0 THEN kc.quotedName ELSE m.quotedName END + ' IS NOT NULL AND %2.' + CASE WHEN @import > 0 THEN m.quotedName ELSE kc.quotedName END + ' IS NULL)' + @CRLF,
 				@i = @i + 1
 			FROM @key_columns kc
 			INNER JOIN @mapped_columns m
@@ -406,7 +406,11 @@ BEGIN
 
 			SET @i = 0
 			SELECT
-				@sql = @sql + @TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END + '[' + CASE WHEN @import > 0 THEN uc.name ELSE m.name END + '] = %2.[' + CASE WHEN @import > 0 THEN m.name ELSE uc.name END + '],' + @CRLF,
+				@sql = @sql +
+					@TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END +
+					CASE WHEN @import > 0 THEN uc.quotedName ELSE m.quotedName END + ' = ' +
+					'%2.' + CASE WHEN @import > 0 THEN m.quotedName ELSE uc.quotedName END +
+					',' + @CRLF,
 				@i = @i + 1
 			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
@@ -429,9 +433,9 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
-					'([ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL)' + @CRLF +
-					'   OR ([ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL)' + @CRLF +
-					'   OR [ours].[' + uc.name + '] <> [theirs].[' + m.name + ']' + @CRLF,
+					'([ours].' + uc.quotedName + ' IS NULL AND [theirs].' + m.quotedName + ' IS NOT NULL)' + @CRLF +
+					'   OR ([ours].' + uc.quotedName + ' IS NOT NULL AND [theirs].' + m.quotedName + ' IS NULL)' + @CRLF +
+					'   OR [ours].' + uc.quotedName + ' <> [theirs].' + m.quotedName + '' + @CRLF,
 				@i = @i + 1
 			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
@@ -470,9 +474,9 @@ BEGIN
 	IF @interleave = 1
 	BEGIN
 		SELECT @sql = @sql +
-			@TAB + '   [ours].[' + u.name + '] AS [<<< ' + u.name + '],' + @CRLF +
-			@TAB + '   [theirs].[' + m.name + '] AS [>>> ' + m.name + '],' + @CRLF
-		FROM @use_columns u
+			@TAB + '   [ours].' + uc.quotedName + ' AS [<<< ' + uc.quotedName + '],' + @CRLF +
+			@TAB + '   [theirs].' + m.quotedName + ' AS [>>> ' + m.quotedName + '],' + @CRLF
+		FROM @use_columns uc
 		INNER JOIN @mapped_columns m
 		ON u.column_id = m.column_id
 	END
@@ -480,12 +484,12 @@ BEGIN
 	BEGIN
 		SET @sql = @sql + '''OURS <<<'' AS [ ],' + @CRLF
 
-		SELECT @sql = @sql + @TAB + '   [ours].[' + name + '],' + @CRLF
+		SELECT @sql = @sql + @TAB + '   [ours].' + quotedName + ',' + @CRLF
 		FROM @our_columns
 
 		SET @sql = @sql + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
 
-		SELECT @sql = @sql + @TAB + '   [theirs].[' + name + '],' + @CRLF
+		SELECT @sql = @sql + @TAB + '   [theirs].' + quotedName + ',' + @CRLF
 		FROM @their_columns
 	END
 
@@ -503,8 +507,8 @@ BEGIN
 	SELECT
 		@sql = @sql +
 			CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
-			'([ours].[' + kc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL)' + @CRLF +
-			'   OR ([ours].[' + kc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL)' + @CRLF,
+			'([ours].' + kc.quotedName + ' IS NULL AND [theirs].' + m.quotedName + ' IS NOT NULL)' + @CRLF +
+			'   OR ([ours].' + kc.quotedName + ' IS NOT NULL AND [theirs].' + m.quotedName + ' IS NULL)' + @CRLF,
 		@i = @i + 1
 	FROM @key_columns kc
 	INNER JOIN @mapped_columns m
@@ -512,9 +516,9 @@ BEGIN
 
 	SELECT
 		@sql = @sql +
-			'   OR ([ours].[' + uc.name + '] IS NULL AND [theirs].[' + m.name + '] IS NOT NULL)' + @CRLF +
-			'   OR ([ours].[' + uc.name + '] IS NOT NULL AND [theirs].[' + m.name + '] IS NULL)' + @CRLF +
-			'   OR [ours].[' + uc.name + '] <> [theirs].[' + m.name + ']' + @CRLF
+			'   OR ([ours].' + uc.quotedName + ' IS NULL AND [theirs].' + m.quotedName + ' IS NOT NULL)' + @CRLF +
+			'   OR ([ours].' + uc.quotedName + ' IS NOT NULL AND [theirs].' + m.quotedName + ' IS NULL)' + @CRLF +
+			'   OR [ours].' + uc.quotedName + ' <> [theirs].' + m.quotedName + '' + @CRLF
 	FROM @use_columns uc
 	INNER JOIN @mapped_columns m
 	ON uc.column_id = m.column_id

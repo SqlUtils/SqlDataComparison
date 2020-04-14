@@ -5,20 +5,20 @@ GO
 /*[[LICENSE]]*/
 CREATE FUNCTION [internals].[SplitColumnMap] (
 	@map NVARCHAR(MAX)
-) RETURNS @column_mapping TABLE (name sysname not null, rename sysname not null)
+) RETURNS @column_mapping TABLE (quoteName internals.QuotedName not null, quoteRename internals.QuotedName not null)
 AS
 BEGIN
 	DECLARE @index int
 	DECLARE @innerIndex int
 
-	DECLARE @columnPair sysname
+	DECLARE @columnPair NVARCHAR(MAX)
 
 	DECLARE @server sysname
 	DECLARE @database sysname
 	DECLARE @schema sysname
 
-	DECLARE @from sysname
-	DECLARE @to sysname
+	DECLARE @from NVARCHAR(MAX)
+	DECLARE @to NVARCHAR(MAX)
 
 	DECLARE @done bit = 0
 
@@ -59,7 +59,8 @@ BEGIN
 				SET @to = NULL
 		END
 
-		INSERT INTO @column_mapping SELECT @from, @to
+		-- nulls above intentionally cause error here
+		INSERT INTO @column_mapping SELECT QUOTENAME(@from), QUOTENAME(@to)
 
 		IF @done = 0
 			SET @map = SUBSTRING(@map, @index + 1, LEN(@map))

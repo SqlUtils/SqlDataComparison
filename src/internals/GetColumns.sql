@@ -4,10 +4,10 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [internals].[GetColumns]
-	@database_part SYSNAME,
+	@database_part internals.QuotedServerPlusTableName,
 	@schema SYSNAME,
 	@table SYSNAME,
-	@full_table_name SYSNAME
+	@full_table_name internals.FourPartQuotedName
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -30,7 +30,7 @@ BEGIN
 		'@schema sysname,' + @CRLF +
 		'@table sysname'
 	SET @sql =
-		'SELECT c.column_id, c.name' + @CRLF +
+		'SELECT c.column_id, QUOTENAME(c.name) as quotedName' + @CRLF +
 		'FROM ' + @database_part + '.sys.objects o' + @CRLF +
 		'INNER JOIN ' + @database_part + '.sys.schemas s' + @CRLF +
 		'ON o.schema_id = s.schema_id' + @CRLF +

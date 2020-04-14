@@ -50,7 +50,7 @@ BEGIN
 
 			SELECT @i = 0, @idsWhere = '('
 
-			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[ours].' + QUOTENAME(kc.name) + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
+			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[ours].' + kc.quotedName + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
 			FROM #ids i
 			FULL OUTER JOIN @key_columns kc
 			ON 1 = 1
@@ -58,7 +58,7 @@ BEGIN
 
 			SELECT @i = 0, @idsWhere = @idsWhere + ') OR ('
 
-			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[theirs].' + QUOTENAME(m.name) + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
+			SELECT @idsWhere = @idsWhere + CASE WHEN @i = 0 THEN '' ELSE ' AND ' END + '[theirs].' + m.quotedName + CASE WHEN @i = 0 THEN ' >= ' ELSE ' <= ' END + CAST(i.id AS NVARCHAR(MAX)), @i = @i + 1
 			FROM #ids i
 			FULL OUTER JOIN @key_columns kc
 			ON 1 = 1
@@ -92,9 +92,9 @@ BEGIN
 			SELECT @idsWhere =
 				@idsWhere +
 				CASE WHEN @i = 0 THEN '' ELSE ' OR ' END +
-				'[ours].' + QUOTENAME(kc.name) + ' = ' + CAST(i.id AS NVARCHAR(MAX)) +
+				'[ours].' + kc.quotedName + ' = ' + CAST(i.id AS NVARCHAR(MAX)) +
 				' OR ' +
-				'[theirs].' + QUOTENAME(m.name) + ' = ' + CAST(i.id AS NVARCHAR(MAX)),
+				'[theirs].' + m.quotedName + ' = ' + CAST(i.id AS NVARCHAR(MAX)),
 				@i = @i + 1
 			FROM #ids i
 			FULL OUTER JOIN @key_columns kc

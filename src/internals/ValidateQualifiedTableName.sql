@@ -4,21 +4,21 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE [internals].[ValidateQualifiedTableName]
-	@qualified_table_name sysname,
-	@defaultDbName sysname = NULL,
+	@qualified_table_name internals.FourPartQuotedName,
+	@default_db_name sysname = NULL,
 	@server sysname OUTPUT,
 	@database sysname OUTPUT,
 	@schema sysname OUTPUT,
 	@table sysname OUTPUT,
-	@full_database_part sysname OUTPUT,
-	@full_table_name sysname OUTPUT,
+	@full_database_part internals.QuotedServerPlusTableName OUTPUT,
+	@full_table_name internals.FourPartQuotedName OUTPUT,
 	@param_name sysname = ''
 AS
 BEGIN
 	SET NOCOUNT ON;
 	SELECT
 		@server = PARSENAME(@qualified_table_name, 4),
-		@database = ISNULL(PARSENAME(@qualified_table_name, 3), CASE WHEN @server IS NOT NULL THEN NULL ELSE @defaultDbName END),
+		@database = ISNULL(PARSENAME(@qualified_table_name, 3), CASE WHEN @server IS NOT NULL THEN NULL ELSE @default_db_name END),
 		@schema = ISNULL(PARSENAME(@qualified_table_name, 2), 'dbo'),
 		@table = PARSENAME(@qualified_table_name, 1)
 
@@ -34,8 +34,8 @@ BEGIN
 		GOTO error
 	END
 
-	SET @full_database_part = ISNULL('[' + @server + '].[', '[') + @database + ']'
-	SET @full_table_name = @full_database_part + '.[' + @schema + '].[' + @table + ']'
+	SET @full_database_part = ISNULL(QUOTENAME(@server) + '.', '') + QUOTENAME(@database)
+	SET @full_table_name = @full_database_part + '.' + QUOTENAME(@schema) + '.' + QUOTENAME(@table)
 
 	RETURN 0
 

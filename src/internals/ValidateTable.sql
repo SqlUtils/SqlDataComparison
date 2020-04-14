@@ -8,8 +8,8 @@ CREATE PROCEDURE [internals].[ValidateTable]
 	@database SYSNAME,
 	@schema SYSNAME,
 	@table SYSNAME,
-	@database_part SYSNAME,
-	@full_table_name SYSNAME
+	@database_part internals.QuotedServerPlusTableName,
+	@full_table_name internals.FourPartQuotedName
 AS
 BEGIN
 	SET NOCOUNT ON;

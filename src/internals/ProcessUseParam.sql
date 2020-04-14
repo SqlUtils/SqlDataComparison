@@ -6,7 +6,7 @@ GO
 CREATE PROCEDURE [internals].[ProcessUseParam]
 	@use NVARCHAR(MAX),
 	@our_columns internals.ColumnsTable READONLY,
-	@our_full_table_name SYSNAME
+	@our_full_table_name internals.FourPartQuotedName
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -48,12 +48,12 @@ BEGIN
 
 		-- fill out @use_columns and give canonical name
 		UPDATE uc
-		SET column_id = c.column_id, name = c.name
+		SET column_id = c.column_id, quotedName = c.quotedName
 		FROM @use_columns uc
 		INNER JOIN @our_columns c
-		ON uc.name = c.name
+		ON uc.quotedName = c.quotedName
 
-		SELECT column_id, name
+		SELECT column_id, quotedName
 		FROM @use_columns
 	END
 

@@ -6,7 +6,7 @@ GO
 CREATE PROCEDURE [internals].[ProcessJoinParam]
 	@join NVARCHAR(MAX),
 	@use_columns internals.ColumnsTable READONLY,
-	@our_full_table_name SYSNAME
+	@our_full_table_name internals.FourPartQuotedName
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -20,8 +20,8 @@ BEGIN
 
 	DECLARE @join_columns internals.ColumnsTable
 
-	INSERT INTO @join_columns (name)
-	SELECT name FROM internals.SplitColumnNames(@join)
+	INSERT INTO @join_columns (quotedName)
+	SELECT QUOTENAME(name) FROM internals.SplitColumnNames(@join)
 	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
 	IF @error <> 0
@@ -39,10 +39,10 @@ BEGIN
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
-	SELECT c.column_id, c.name
-	FROM @use_columns c
+	SELECT uc.column_id, uc.quotedName
+	FROM @use_columns uc
 	INNER JOIN @join_columns jc
-	ON c.name = jc.name
+	ON uc.quotedName = jc.quotedName
 
 	RETURN 0
 
