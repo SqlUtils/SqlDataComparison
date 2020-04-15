@@ -20,8 +20,8 @@ BEGIN
 
 	DECLARE @join_columns internals.ColumnsTable
 
-	INSERT INTO @join_columns (quotedName)
-	SELECT QUOTENAME(name) FROM internals.SplitColumnNames(@join)
+	INSERT INTO @join_columns (quoted_name)
+	SELECT quoted_name FROM internals.SplitColumnNames(@join)
 	SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
 	IF @error <> 0
@@ -39,10 +39,10 @@ BEGIN
 
 	IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
-	SELECT uc.column_id, uc.quotedName
+	SELECT uc.column_id, uc.quoted_name
 	FROM @use_columns uc
 	INNER JOIN @join_columns jc
-	ON uc.quotedName = jc.quotedName
+	ON uc.quoted_name = jc.quoted_name
 
 	RETURN 0
 

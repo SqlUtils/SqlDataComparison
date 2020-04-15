@@ -6,8 +6,8 @@ GO
 CREATE PROCEDURE [internals].[ValidateColumns]
 	@test_columns internals.ColumnsTable READONLY,
 	@allowed_columns internals.ColumnsTable READONLY,
-	@msg_lquot CHAR(1),
-	@msg_rquot CHAR(1),
+	@msg_lquot NVARCHAR(1),
+	@msg_rquot NVARCHAR(1),
 	@msg_singular NVARCHAR(MAX),
 	@msg_plural NVARCHAR(MAX),
 	@msg_table_name NVARCHAR(MAX)
@@ -21,19 +21,19 @@ BEGIN
 
 	-- gather illegal column names (if any) into a single string using FOR XML PATH; have to use CTE with this in order to get the count
 	SET @rowcount = 0;
-	WITH IllegalColumns_CTE (quotedName)
+	WITH IllegalColumns_CTE (quoted_name)
 	AS
 	(
-		SELECT t.quotedName
+		SELECT t.quoted_name
 		FROM @test_columns t
 		LEFT OUTER JOIN @allowed_columns c
-		ON t.quotedName = c.quotedName
-		WHERE c.quotedName IS NULL
+		ON t.quoted_name = c.quoted_name
+		WHERE c.quoted_name IS NULL
 	)
 	SELECT
 		@illegal_columns = STUFF(
 		(
-			SELECT ', ' + @msg_lquot + quotedName + @msg_rquot
+			SELECT ', ' + @msg_lquot + quoted_name + @msg_rquot
 			FROM IllegalColumns_CTE
 			FOR XML PATH('')
 		), 1, 2, ''),

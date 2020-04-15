@@ -5,7 +5,7 @@ GO
 /*[[LICENSE]]*/
 CREATE FUNCTION [internals].[SplitColumnMap] (
 	@map NVARCHAR(MAX)
-) RETURNS @column_mapping TABLE (quoteName internals.QuotedName not null, quoteRename internals.QuotedName not null)
+) RETURNS @column_mapping TABLE (quoted_name internals.QuotedName not null, quoted_rename internals.QuotedName not null)
 AS
 BEGIN
 	DECLARE @index int
@@ -60,7 +60,8 @@ BEGIN
 		END
 
 		-- nulls above intentionally cause error here
-		INSERT INTO @column_mapping SELECT QUOTENAME(@from), QUOTENAME(@to)
+		INSERT INTO @column_mapping (quoted_name, quoted_rename)
+		SELECT QUOTENAME(@from), QUOTENAME(@to)
 
 		IF @done = 0
 			SET @map = SUBSTRING(@map, @index + 1, LEN(@map))

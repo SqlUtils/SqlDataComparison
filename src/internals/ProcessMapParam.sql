@@ -22,20 +22,16 @@ BEGIN
 
 	IF @map IS NULL
 	BEGIN
-		SELECT column_id, quotedName
+		SELECT column_id, quoted_name
 		FROM @our_columns
 	END
 	ELSE
 	BEGIN
-		CREATE TABLE #column_mapping
-		(
-			quotedName internals.QuotedName,
-			quotedRename internals.QuotedName
-		)
+		DECLARE @column_mapping internals.ColumnsMap
 
 		BEGIN TRY
-			INSERT INTO #column_mapping (quotedName, quotedRename)
-			SELECT QUOTENAME([name]) AS quotedName, QUOTENAME(rename) AS quotedRename
+			INSERT INTO @column_mapping (quoted_name, quoted_rename)
+			SELECT quoted_name, quoted_rename
 			FROM internals.SplitColumnMap(@map)
 
 			SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
@@ -46,17 +42,16 @@ BEGIN
 
 		IF @error <> 0
 		BEGIN
-		  -- names passed to @map param should NOT be quoted, and (as currently coded) cannot contain , or ;
-			RAISERROR('Illegal @map parameter ''%s''; use ''our_col1, their_col1; our_col2, their_col2''', 16, 1, @map)
+			RAISERROR('Illegal @map parameter ''%s''; use ''our_col1, their_col1; our_col2, their_col2'' quoting column names using [...] if necessary', 16, 1, @map)
 			GOTO error
 		END
 
 		-- validate mapping source columns
 		DECLARE @map_source internals.ColumnsTable
 
-		INSERT INTO @map_source (quotedName)
-		SELECT quotedName
-		FROM #column_mapping
+		INSERT INTO @map_source (quoted_name)
+		SELECT quoted_name
+		FROM @column_mapping
 
 		EXEC @retval = internals.ValidateColumns
 			@map_source, @our_columns,
@@ -70,9 +65,9 @@ BEGIN
 		-- validate mapping target columns
 		DECLARE @map_target internals.ColumnsTable
 
-		INSERT INTO @map_target (quotedName)
-		SELECT quotedRename
-		FROM #column_mapping
+		INSERT INTO @map_target (quoted_name)
+		SELECT quoted_rename
+		FROM @column_mapping
 
 		EXEC @retval = internals.ValidateColumns
 			@map_target, @their_columns,
@@ -84,12 +79,12 @@ BEGIN
 		IF @retval <> 0 OR @@ERROR <> 0 GOTO error
 
 		-- we already know that mapped columns do map, so we can safely convert to the canoncial remote name here
-		SELECT lc.column_id, ISNULL(rc.quotedName, lc.quotedName) AS quotedName
+		SELECT lc.column_id, ISNULL(rc.quoted_name, lc.quoted_name) AS quoted_name
 		FROM @our_columns lc
-		LEFT OUTER JOIN #column_mapping m
-		ON lc.quotedName = m.quotedName
+		LEFT OUTER JOIN @column_mapping m
+		ON lc.quoted_name = m.quoted_name
 		LEFT OUTER JOIN @their_columns rc
-		ON m.rename = rc.quotedName
+		ON m.quoted_rename = rc.quoted_name
 	END
 
 	RETURN 0

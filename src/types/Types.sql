@@ -14,6 +14,14 @@ GO
 CREATE TYPE internals.ColumnsTable AS TABLE
 (
 	column_id int,
-	quotedName internals.QuotedName
+	quoted_name internals.QuotedName
+)
+GO
+
+-- pre-quoted column names
+CREATE TYPE internals.ColumnsMap AS TABLE
+(
+	quoted_name internals.QuotedName,
+	quoted_rename internals.QuotedName
 )
 GO

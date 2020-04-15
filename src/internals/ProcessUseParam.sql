@@ -20,15 +20,15 @@ BEGIN
 
 	IF @use IS NULL
 	BEGIN
-		SELECT column_id, name
+		SELECT column_id, quoted_name
 		FROM @our_columns
 	END
 	ELSE
 	BEGIN
 		DECLARE @use_columns internals.ColumnsTable
 
-		INSERT INTO @use_columns (name)
-		SELECT name FROM internals.SplitColumnNames(@use)
+		INSERT INTO @use_columns (quoted_name)
+		SELECT quoted_name FROM internals.SplitColumnNames(@use)
 		SELECT @rowcount = @@ROWCOUNT, @error = @@ERROR
 
 		IF @error <> 0
@@ -48,12 +48,12 @@ BEGIN
 
 		-- fill out @use_columns and give canonical name
 		UPDATE uc
-		SET column_id = c.column_id, quotedName = c.quotedName
+		SET column_id = c.column_id, quoted_name = c.quoted_name
 		FROM @use_columns uc
 		INNER JOIN @our_columns c
-		ON uc.quotedName = c.quotedName
+		ON uc.quoted_name = c.quoted_name
 
-		SELECT column_id, quotedName
+		SELECT column_id, quoted_name
 		FROM @use_columns
 	END
 

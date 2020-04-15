@@ -103,7 +103,7 @@ BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 
 	DECLARE @Message NVARCHAR(MAX) =
-		'Target column name ''xID'' specified in @map does not exist in [SqlUtilsTests_C].[dbo].[AddressMatch]'
+		'Target column name ''[xID]'' specified in @map does not exist in [SqlUtilsTests_C].[dbo].[AddressMatch]'
 
 	EXEC tSQLt.ExpectException @Message, 16, 1
 
@@ -118,7 +118,7 @@ BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 
 	DECLARE @Message NVARCHAR(MAX) =
-		'Source column name ''xAddressType'' specified in @map does not exist in [SqlUtilsTests_A].[dbo].[AddressTypes]'
+		'Source column name ''[xAddressType]'' specified in @map does not exist in [SqlUtilsTests_A].[dbo].[AddressTypes]'
 
 	EXEC tSQLt.ExpectException @Message, 16, 1
 

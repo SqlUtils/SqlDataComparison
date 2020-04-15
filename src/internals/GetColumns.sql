@@ -30,7 +30,7 @@ BEGIN
 		'@schema sysname,' + @CRLF +
 		'@table sysname'
 	SET @sql =
-		'SELECT c.column_id, QUOTENAME(c.name) as quotedName' + @CRLF +
+		'SELECT c.column_id, QUOTENAME(c.name) as quoted_name' + @CRLF +
 		'FROM ' + @database_part + '.sys.objects o' + @CRLF +
 		'INNER JOIN ' + @database_part + '.sys.schemas s' + @CRLF +
 		'ON o.schema_id = s.schema_id' + @CRLF +

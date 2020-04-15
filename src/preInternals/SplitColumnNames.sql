@@ -5,7 +5,7 @@ GO
 /*[[LICENSE]]*/
 CREATE FUNCTION [internals].[SplitColumnNames] (
 	@columnNames NVARCHAR(MAX)
-) RETURNS @columnNamesTable TABLE (quoteName internals.QuotedName not null)
+) RETURNS @columnNamesTable TABLE (quoted_name internals.QuotedName not null)
 AS
 BEGIN
 	DECLARE @index int

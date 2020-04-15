@@ -17,8 +17,8 @@ BEGIN
 
 	DECLARE @mapped_use_columns internals.ColumnsTable
 
-	INSERT INTO @mapped_use_columns (quotedName)
-	SELECT m.quotedName
+	INSERT INTO @mapped_use_columns (quoted_name)
+	SELECT m.quoted_name
 	FROM @use_columns uc
 	INNER JOIN @mapped_columns m
 	ON uc.column_id = m.column_id

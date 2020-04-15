@@ -30,7 +30,7 @@
   </Target>
 
   <ItemGroup>
-    <InstallFiles Include="$(SourcePath)CreateSqlUtilsDb.sql;$(SourcePath)types\*.sql;$(SourcePath)internals\*.sql;$(SourcePath)core\*.sql;$(SourcePath)main\*.sql"/>
+    <InstallFiles Include="$(SourcePath)CreateSqlUtilsDb.sql;$(SourcePath)types\*.sql;$(SourcePath)preInternals\*.sql;$(SourcePath)internals\*.sql;$(SourcePath)core\*.sql;$(SourcePath)main\*.sql"/>
   </ItemGroup>
 
   <!-- Concatenate files https://stackoverflow.com/a/29557615/795690 -->
@@ -99,7 +99,7 @@
   </Target>
 
   <ItemGroup>
-    <InstallTestsFiles Include="$(TestsPath)test-dbs\DropTestDatabases.sql;$(TestsPath)test-dbs\CreateTestDatabases.sql;$(TestsPath)test-dbs\RecreateTestTables.sql;$(TestsPath)*.sql"/>
+    <InstallTestsFiles Include="$(TestsPath)test-dbs\DropTestDatabases.sql;$(TestsPath)test-dbs\CreateTestDatabases.sql;$(TestsPath)test-dbs\CreateTestTables.sql;$(TestsPath)test-dbs\CreateCrazyTables.sql;$(TestsPath)*.sql"/>
   </ItemGroup>
 
   <Target Name="CreateInstallTests" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);@(InstallTestsFiles)" Outputs="$(OutputPath)$(OutputInstallTests)">

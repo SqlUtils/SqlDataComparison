@@ -118,7 +118,7 @@ BEGIN
 	 */
 	DECLARE @our_columns internals.ColumnsTable
 
-	INSERT INTO @our_columns (column_id, quotedName)
+	INSERT INTO @our_columns (column_id, quoted_name)
 	EXEC @retval = internals.GetColumns
 		@database_part = @our_database_part,
 		@schema = @our_schema,
@@ -132,7 +132,7 @@ BEGIN
 	 */
 	DECLARE @use_columns internals.ColumnsTable
 
-	INSERT INTO @use_columns (column_id, quotedName)
+	INSERT INTO @use_columns (column_id, quoted_name)
 	EXEC @retval = internals.ProcessUseParam
 		@use = @use,
 		@our_columns = @our_columns,
@@ -145,7 +145,7 @@ BEGIN
 	 */
 	DECLARE @their_columns internals.ColumnsTable
 
-	INSERT INTO @their_columns (column_id, quotedName)
+	INSERT INTO @their_columns (column_id, quoted_name)
 	EXEC @retval = internals.GetColumns
 		@database_part = @their_database_part,
 		@schema = @their_schema,
@@ -160,7 +160,7 @@ BEGIN
 	-- NB @mapped_columns contains local column id with mapped remote column name
 	DECLARE @mapped_columns internals.ColumnsTable
 
-	INSERT INTO @mapped_columns (column_id, quotedName)
+	INSERT INTO @mapped_columns (column_id, quoted_name)
 	EXEC @retval = internals.ProcessMapParam
 		@map = @map,
 		@our_columns = @our_columns,
@@ -191,7 +191,7 @@ BEGIN
 		/*
 		 * Use @join for join instead of table primary keys, if provided
 		 */
-		INSERT INTO @key_columns (column_id, quotedName)
+		INSERT INTO @key_columns (column_id, quoted_name)
 		EXEC @retval = internals.ProcessJoinParam
 			@join = @join,
 			@use_columns = @use_columns,
@@ -204,7 +204,7 @@ BEGIN
 		/*
 		 * Load our table primary key columns
 		 */
-		INSERT INTO @key_columns (column_id, quotedName)
+		INSERT INTO @key_columns (column_id, quoted_name)
 		EXEC @retval = internals.GetPrimaryKeyColumns
 			@database_part = @our_database_part,
 			@schema = @our_schema,
@@ -244,7 +244,7 @@ BEGIN
 
 	SET @i = 0
 	SELECT
-		@join_sql = @join_sql + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].' + kc.quotedName + ' = [theirs].' + m.quotedName + '' + @CRLF,
+		@join_sql = @join_sql + CASE WHEN @i = 0 THEN 'ON' ELSE 'AND' END + ' [ours].' + kc.quoted_name + ' = [theirs].' + m.quoted_name + '' + @CRLF,
 		@i = @i + 1
 	FROM @key_columns kc
 	INNER JOIN @mapped_columns m
@@ -265,13 +265,13 @@ BEGIN
 		IF @added_rows = 1 OR @changed_rows = 1
 		BEGIN
 			IF @import > 0
-				INSERT INTO @identity_columns (column_id, quotedName)
+				INSERT INTO @identity_columns (column_id, quoted_name)
 				EXEC @retval = internals.GetIdentityColumns
 					@database_part = @our_database_part,
 					@schema = @our_schema,
 					@table = @our_table
 			ELSE
-				INSERT INTO @identity_columns (column_id, quotedName)
+				INSERT INTO @identity_columns (column_id, quoted_name)
 				EXEC @retval = internals.GetIdentityColumns
 					@database_part = @their_database_part,
 					@schema = @their_schema,
@@ -300,7 +300,7 @@ BEGIN
 
 			SET @sql = @sql + 'INSERT INTO %0 (' + @CRLF
 
-			SELECT @sql = @sql + @TAB + CASE WHEN @import > 0 THEN uc.quotedName ELSE m.quotedName END + ',' + @CRLF
+			SELECT @sql = @sql + @TAB + CASE WHEN @import > 0 THEN uc.quoted_name ELSE m.quoted_name END + ',' + @CRLF
 			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
 			ON uc.column_id = m.column_id
@@ -311,7 +311,7 @@ BEGIN
 
 			SELECT @sql = @sql + 'SELECT' + @CRLF
 
-			SELECT @sql = @sql + @TAB + '%2.' + CASE WHEN @import > 0 THEN m.quotedName ELSE uc.quotedName END + ',' + @CRLF
+			SELECT @sql = @sql + @TAB + '%2.' + CASE WHEN @import > 0 THEN m.quoted_name ELSE uc.quoted_name END + ',' + @CRLF
 			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
 			ON uc.column_id = m.column_id
@@ -330,7 +330,7 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN '      ' ELSE '  AND ' END +
-					'%1.' + CASE WHEN @import > 0 THEN kc.quotedName ELSE m.quotedName END + ' IS NULL' + @CRLF,
+					'%1.' + CASE WHEN @import > 0 THEN kc.quoted_name ELSE m.quoted_name END + ' IS NULL' + @CRLF,
 				@i = @i + 1
 			FROM @key_columns kc
 			INNER JOIN @mapped_columns m
@@ -374,7 +374,7 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
-					'(%1.' + CASE WHEN @import > 0 THEN kc.quotedName ELSE m.quotedName END + ' IS NOT NULL AND %2.' + CASE WHEN @import > 0 THEN m.quotedName ELSE kc.quotedName END + ' IS NULL)' + @CRLF,
+					'(%1.' + CASE WHEN @import > 0 THEN kc.quoted_name ELSE m.quoted_name END + ' IS NOT NULL AND %2.' + CASE WHEN @import > 0 THEN m.quoted_name ELSE kc.quoted_name END + ' IS NULL)' + @CRLF,
 				@i = @i + 1
 			FROM @key_columns kc
 			INNER JOIN @mapped_columns m
@@ -408,8 +408,8 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					@TAB + CASE WHEN @i = 0 THEN 'SET ' ELSE @TAB END +
-					CASE WHEN @import > 0 THEN uc.quotedName ELSE m.quotedName END + ' = ' +
-					'%2.' + CASE WHEN @import > 0 THEN m.quotedName ELSE uc.quotedName END +
+					CASE WHEN @import > 0 THEN uc.quoted_name ELSE m.quoted_name END + ' = ' +
+					'%2.' + CASE WHEN @import > 0 THEN m.quoted_name ELSE uc.quoted_name END +
 					',' + @CRLF,
 				@i = @i + 1
 			FROM @use_columns uc
@@ -433,9 +433,9 @@ BEGIN
 			SELECT
 				@sql = @sql +
 					CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
-					'([ours].' + uc.quotedName + ' IS NULL AND [theirs].' + m.quotedName + ' IS NOT NULL)' + @CRLF +
-					'   OR ([ours].' + uc.quotedName + ' IS NOT NULL AND [theirs].' + m.quotedName + ' IS NULL)' + @CRLF +
-					'   OR [ours].' + uc.quotedName + ' <> [theirs].' + m.quotedName + '' + @CRLF,
+					'([ours].' + uc.quoted_name + ' IS NULL AND [theirs].' + m.quoted_name + ' IS NOT NULL)' + @CRLF +
+					'   OR ([ours].' + uc.quoted_name + ' IS NOT NULL AND [theirs].' + m.quoted_name + ' IS NULL)' + @CRLF +
+					'   OR [ours].' + uc.quoted_name + ' <> [theirs].' + m.quoted_name + '' + @CRLF,
 				@i = @i + 1
 			FROM @use_columns uc
 			INNER JOIN @mapped_columns m
@@ -474,22 +474,22 @@ BEGIN
 	IF @interleave = 1
 	BEGIN
 		SELECT @sql = @sql +
-			@TAB + '   [ours].' + uc.quotedName + ' AS [<<< ' + uc.quotedName + '],' + @CRLF +
-			@TAB + '   [theirs].' + m.quotedName + ' AS [>>> ' + m.quotedName + '],' + @CRLF
+			@TAB + '   [ours].' + uc.quoted_name + ' AS [<<< ' + uc.quoted_name + '],' + @CRLF +
+			@TAB + '   [theirs].' + m.quoted_name + ' AS [>>> ' + m.quoted_name + '],' + @CRLF
 		FROM @use_columns uc
 		INNER JOIN @mapped_columns m
-		ON u.column_id = m.column_id
+		ON uc.column_id = m.column_id
 	END
 	ELSE
 	BEGIN
 		SET @sql = @sql + '''OURS <<<'' AS [ ],' + @CRLF
 
-		SELECT @sql = @sql + @TAB + '   [ours].' + quotedName + ',' + @CRLF
+		SELECT @sql = @sql + @TAB + '   [ours].' + quoted_name + ',' + @CRLF
 		FROM @our_columns
 
 		SET @sql = @sql + @TAB + '   ''THEIRS >>>'' AS [ ],' + @CRLF
 
-		SELECT @sql = @sql + @TAB + '   [theirs].' + quotedName + ',' + @CRLF
+		SELECT @sql = @sql + @TAB + '   [theirs].' + quoted_name + ',' + @CRLF
 		FROM @their_columns
 	END
 
@@ -507,8 +507,8 @@ BEGIN
 	SELECT
 		@sql = @sql +
 			CASE WHEN @i = 0 THEN '      ' ELSE '   OR ' END +
-			'([ours].' + kc.quotedName + ' IS NULL AND [theirs].' + m.quotedName + ' IS NOT NULL)' + @CRLF +
-			'   OR ([ours].' + kc.quotedName + ' IS NOT NULL AND [theirs].' + m.quotedName + ' IS NULL)' + @CRLF,
+			'([ours].' + kc.quoted_name + ' IS NULL AND [theirs].' + m.quoted_name + ' IS NOT NULL)' + @CRLF +
+			'   OR ([ours].' + kc.quoted_name + ' IS NOT NULL AND [theirs].' + m.quoted_name + ' IS NULL)' + @CRLF,
 		@i = @i + 1
 	FROM @key_columns kc
 	INNER JOIN @mapped_columns m
@@ -516,9 +516,9 @@ BEGIN
 
 	SELECT
 		@sql = @sql +
-			'   OR ([ours].' + uc.quotedName + ' IS NULL AND [theirs].' + m.quotedName + ' IS NOT NULL)' + @CRLF +
-			'   OR ([ours].' + uc.quotedName + ' IS NOT NULL AND [theirs].' + m.quotedName + ' IS NULL)' + @CRLF +
-			'   OR [ours].' + uc.quotedName + ' <> [theirs].' + m.quotedName + '' + @CRLF
+			'   OR ([ours].' + uc.quoted_name + ' IS NULL AND [theirs].' + m.quoted_name + ' IS NOT NULL)' + @CRLF +
+			'   OR ([ours].' + uc.quoted_name + ' IS NOT NULL AND [theirs].' + m.quoted_name + ' IS NULL)' + @CRLF +
+			'   OR [ours].' + uc.quoted_name + ' <> [theirs].' + m.quoted_name + '' + @CRLF
 	FROM @use_columns uc
 	INNER JOIN @mapped_columns m
 	ON uc.column_id = m.column_id

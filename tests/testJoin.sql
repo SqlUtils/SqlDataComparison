@@ -59,7 +59,7 @@ BEGIN
 	DECLARE @CRLF CHAR(2) = CHAR(13) + CHAR(10)
 
 	DECLARE @Message NVARCHAR(MAX) =
-		'Column name ''xAddressTypeID'' specified in @join does not exist in [SqlUtilsTests_C].[dbo].[AddressTypes]'
+		'Column name ''[xAddressTypeID]'' specified in @join does not exist in [SqlUtilsTests_C].[dbo].[AddressTypes]'
 
 	EXEC tSQLt.ExpectException @Message, 16, 1
 

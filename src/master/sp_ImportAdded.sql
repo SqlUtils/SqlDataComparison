@@ -4,8 +4,8 @@ SET QUOTED_IDENTIFIER ON
 GO
 /*[[LICENSE]]*/
 CREATE PROCEDURE sp_ImportAdded
-	@ourTableName internals.FourPartQuotedName,
-	@theirTableName internals.FourPartQuotedName,
+	@ourTableName NVARCHAR(1035),
+	@theirTableName NVARCHAR(1035),
 	@map nvarchar(max) = null,
 	@join nvarchar(max) = null,
 	@use nvarchar(max) = null,
