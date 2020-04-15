@@ -2,18 +2,21 @@
 
   <PropertyGroup>
     <PackageId>MightyOrm.SqlDataComparison</PackageId>
-    <Version>1.2.0-alpha1</Version>
+    <Version>1.2.0</Version>
     <OutputPath>build\</OutputPath>
+    <SourcePath>src\</SourcePath>
+    <TestsPath>tests\</TestsPath>
     <OutputInstall>Install.sql</OutputInstall>
     <OutputInstallMaster>InstallMaster.sql</OutputInstallMaster>
     <OutputCleanMaster>CleanMaster.sql</OutputCleanMaster>
-    <OutputInstallTSQLt>tests\InstallTSQLt.sql</OutputInstallTSQLt>
-    <OutputInstallTests>tests\InstallTests.sql</OutputInstallTests>
-    <OutputUninstallTestDbs>tests\UninstallTestDbs.sql</OutputUninstallTestDbs>
-    <SourcePath>src\</SourcePath>
-    <TestsPath>tests\</TestsPath>
+    <OutputReadme>README.txt</OutputReadme>
+    <OutputInstallTSQLt>$(TestsPath)InstallTSQLt.sql</OutputInstallTSQLt>
+    <OutputInstallTests>$(TestsPath)InstallTests.sql</OutputInstallTests>
+    <OutputUninstallTestDbs>$(TestsPath)UninstallTestDbs.sql</OutputUninstallTestDbs>
+    <OutputCompleteReinstallWithTests>$(TestsPath)CompleteReinstallWithTests.sql</OutputCompleteReinstallWithTests>
     <ContentRoot>contentFiles\any\any\</ContentRoot>
     <ContentFolder>SqlDataComparison</ContentFolder>
+    <PackageOutputPath>pack</PackageOutputPath>
     <PackageOutputPath>pack</PackageOutputPath>
     <PackageProjectUrl>https://github.com/MightyOrm/SqlDataComparison</PackageProjectUrl>
     <LicenseFile>publish.license.template</LicenseFile>
@@ -132,22 +135,29 @@
     <Message Text="Created $(OutputPath)$(OutputUninstallTestDbs)"/>
   </Target>
 
-  <Target Name="AddReadme" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);$(SourcePath)static\README.txt" Outputs="$(OutputPath)README.txt">
+  <Target Name="CreateCompleteReinstallWithTests" Inputs="$(OutputPath)$(OutputInstall);$(OutputPath)$(OutputInstallMaster);$(OutputPath)$(OutputInstallTSQLt);$(OutputPath)$(OutputInstallTests);" Outputs="$(OutputPath)$(TestsPath)CompleteReinstallWithTests.sql">
+    <Exec Command="type $(OutputPath)$(OutputInstall) > $(OutputPath)$(TestsPath)CompleteReinstallWithTests.sql" />
+    <Exec Command="type $(OutputPath)$(OutputInstallMaster) >> $(OutputPath)$(TestsPath)CompleteReinstallWithTests.sql" />
+    <Exec Command="type $(OutputPath)$(OutputInstallTSQLt) >> $(OutputPath)$(TestsPath)CompleteReinstallWithTests.sql" />
+    <Exec Command="type $(OutputPath)$(OutputInstallTests) >> $(OutputPath)$(TestsPath)CompleteReinstallWithTests.sql" />
+  </Target>
+
+  <Target Name="AddReadme" Inputs="SqlDataComparison.proj;$(SourcePath)$(LicenseFile);$(SourcePath)static\README.txt" Outputs="$(OutputPath)$(OutputReadme)">
     <ItemGroup>
       <ReadmeContents Include="$([System.IO.File]::ReadAllText($(SourcePath)static\README.txt).Replace($(LicenseReplaceString),$(License)))"/>
     </ItemGroup>
 
-    <WriteLinesToFile File="$(OutputPath)README.txt" Lines="@(ReadmeContents)" Overwrite="true" />
+    <WriteLinesToFile File="$(OutputPath)$(OutputReadme)" Lines="@(ReadmeContents)" Overwrite="true" />
 
-    <Message Text="Created $(OutputPath)README.txt"/>
+    <Message Text="Created $(OutputPath)$(OutputReadme)"/>
   </Target>
 
   <!-- Main build target -->
-  <Target Name="Build" DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;CreateUninstallTestDbs;AddReadme;" />
+  <Target Name="Build" DependsOnTargets="ReadLicense;CreateInstall;CreateInstallMaster;CreateCleanMaster;CreateInstallTSQLt;CreateInstallTests;CreateUninstallTestDbs;CreateCompleteReinstallWithTests;AddReadme;" />
 
-  <Target Name="Pack" DependsOnTargets="Build" Inputs="$(OutputPath)$(OutputUninstallTestDbs)" Outputs="$(PackageOutputPath)\$(PackageId).$(Version).nupkg">
+  <Target Name="Pack" DependsOnTargets="Build" Inputs="$(OutputPath)$(OutputInstall);$(OutputPath)$(OutputInstallMaster);$(OutputPath)$(OutputCleanMaster);$(OutputPath)$(OutputReadme);" Outputs="$(PackageOutputPath)\$(PackageId).$(Version).nupkg">
     <Exec Command="nuget pack -Version $(Version) -OutputDirectory $(PackageOutputPath)" />
-    <Exec Command="7z a -tzip pack/SqlDataComparison.$(Version).zip .\build\* -x!tests*" />
+    <Exec Command="7z a -tzip pack\SqlDataComparison.$(Version).zip .\build\* -x!tests*" />
   </Target>
 
   <Target Name="Clean">
