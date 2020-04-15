@@ -1,10 +1,10 @@
 USE SqlUtils
 GO
 
-EXEC tSQLt.NewTestClass 'testCrazyTableNames';
+EXEC tSQLt.NewTestClass 'testCrazyTables';
 GO
 
-CREATE PROCEDURE testCrazyTableNames.[test crazy table and column names]
+CREATE PROCEDURE testCrazyTables.[test crazy table and column names]
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -29,10 +29,10 @@ BEGIN
 	SET @SQL =
 		'EXEC ImportAll ''[SqlUtilsTests_A].' + QUOTENAME(@longestname) + '.' + QUOTENAME(@longestname) + ''', ''[SqlUtilsTests_C]..' + REPLACE(QUOTENAME(@longname), '''', '''''') + '''' + @CRLF +
 		', @join = ''' +
-		QUOTENAME(@longestname) + ', ' + REPLACE(QUOTENAME(@daftname1), '''', '''''') +
+		REPLACE(QUOTENAME(@longname), '''', '''''') + ', ' + REPLACE(QUOTENAME(@daftname1), '''', '''''') +
 		'''' + @CRLF +
 		', @map = ''' +
-		QUOTENAME(@longestname) + ', ' + REPLACE(QUOTENAME(@daftname2), '''', '''''') +
+		REPLACE(QUOTENAME(@longname), '''', '''''') + ', ' + REPLACE(QUOTENAME(@daftname2), '''', '''''') +
 		'; ' +
 		REPLACE(QUOTENAME(@daftname1), '''', '''''') + ', ' + QUOTENAME(@longestname) +
 		'; ' +

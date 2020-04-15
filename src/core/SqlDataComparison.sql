@@ -474,8 +474,8 @@ BEGIN
 	IF @interleave = 1
 	BEGIN
 		SELECT @sql = @sql +
-			@TAB + '   [ours].' + uc.quoted_name + ' AS [<<< ' + uc.quoted_name + '],' + @CRLF +
-			@TAB + '   [theirs].' + m.quoted_name + ' AS [>>> ' + m.quoted_name + '],' + @CRLF
+			@TAB + '   [ours].' + uc.quoted_name + ' AS ' + QUOTENAME('<<< ' + internals.MidAbbrev(PARSENAME(uc.quoted_name,1), 128 - 4)) + ',' + @CRLF +
+			@TAB + '   [theirs].' + m.quoted_name + ' AS ' + QUOTENAME('>>> ' + internals.MidAbbrev(PARSENAME(m.quoted_name,1), 128 - 4)) + ',' + @CRLF
 		FROM @use_columns uc
 		INNER JOIN @mapped_columns m
 		ON uc.column_id = m.column_id

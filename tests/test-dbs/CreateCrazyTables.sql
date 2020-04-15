@@ -61,7 +61,7 @@ EXEC(@SQL)
 
 SET @SQL = 
 	'CREATE TABLE ' + QUOTENAME(@longestname) + '.' + QUOTENAME(@longestname) + ' (' + @CRLF +
-	'	' + QUOTENAME(@longestname) + ' INT,' + @CRLF +
+	'	' + QUOTENAME(@longname) + ' INT,' + @CRLF +
 	'	' + QUOTENAME(@daftname1) + ' INT,' + @CRLF +
 	'	' + QUOTENAME(@daftname2) + ' NVARCHAR(50)' + @CRLF +
 	')' + @CRLF
