@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <metadata minClientVersion="3.3.0">
+  <metadata>
     <id>MightyOrm.SqlDataComparison</id>
     <version>0.0.0</version>
     <authors>Mike Beaton</authors>
