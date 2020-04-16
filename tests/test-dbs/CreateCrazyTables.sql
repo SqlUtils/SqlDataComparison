@@ -39,7 +39,7 @@ VALUES (
 	']]]]]]]]]]' +
 	']]]]]]]]]]' +
 	']]]]]]]''',
-	'[crazy].mighty.''name''',
+	'[crazy].SqlUtils.''name''',
 	'Another.[Fool''s].quest'
 )
 

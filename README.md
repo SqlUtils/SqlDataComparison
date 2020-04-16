@@ -1,13 +1,13 @@
-# ![logo](https://raw.githubusercontent.com/MightyOrm/SqlDataComparison/master/src/static/logo_32x32.png) SqlDataComparison
+# ![logo](https://raw.githubusercontent.com/SqlUtils/SqlDataComparison/master/src/static/logo_32x32.png) SqlDataComparison
 
 ## Installation:
 
-[![NuGet](https://img.shields.io/nuget/v/MightyOrm.SqlDataComparison.svg)](https://nuget.org/packages/MightyOrm.SqlDataComparison)
+[![NuGet](https://img.shields.io/nuget/v/SqlUtils.SqlDataComparison.svg)](https://nuget.org/packages/SqlUtils.SqlDataComparison)
 
 To get the release files:
 
- - Either download then unzip the [latest release](https://github.com/MightyOrm/SqlDataComparison/releases) hosted here
- - Or add the current [NuGet package](https://nuget.org/packages/MightyOrm.SqlDataComparison) to any .NET Core or .NET Framework project; the release files will automatically appear in a new `SqlDataComparison` virtual directory (or actual directory, for older NuGet clients) in your project
+ - Either download then unzip the [latest release](https://github.com/SqlUtils/SqlDataComparison/releases) hosted here
+ - Or add the current [NuGet package](https://nuget.org/packages/SqlUtils.SqlDataComparison) to any .NET Core or .NET Framework project; the release files will automatically appear in a new `SqlDataComparison` virtual directory (or actual directory, for older NuGet clients) in your project
 
 Then:
 

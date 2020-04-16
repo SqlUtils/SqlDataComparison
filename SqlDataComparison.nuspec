@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <metadata>
-    <id>MightyOrm.SqlDataComparison</id>
+    <id>SqlUtils.SqlDataComparison</id>
     <version>0.0.0</version>
     <authors>Mike Beaton</authors>
     <owners>Mike Beaton</owners>
@@ -24,7 +24,7 @@ Supports:
 </description>
     <tags>SQL Server;SQL;compare data;data comparison</tags>
     <copyright>Copyright (c) 2020 Mike Beaton</copyright>
-    <projectUrl>https://github.com/MightyOrm/SqlDataComparison</projectUrl>
+    <projectUrl>https://github.com/SqlUtils/SqlDataComparison</projectUrl>
     <license type="expression">MIT</license>
     <icon>logo\logo_128x128.png</icon>
     <contentFiles>
