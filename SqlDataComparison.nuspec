@@ -13,7 +13,7 @@ Example usage:
 * EXEC sp_CompareData 'MyTable', 'RemoteDb..TheirTable'
 * EXEC sp_ExportAll 'MyTable', 'RemoteDb..TheirTable'
 * EXEC sp_ExportDeleted 'MyTable', 'RemoteDb..TheirTable'
-* EXEC sp_ExportDeleted 'MyTable', 'RemoteDb..TheirTable', @ids = '43-44'
+* EXEC sp_ImportChanged 'MyTable', 'RemoteDb..TheirTable', @ids = '43-44'
 
 Supports:
 
@@ -26,6 +26,7 @@ Supports:
     <copyright>Copyright (c) 2020 Mike Beaton</copyright>
     <projectUrl>https://github.com/MightyOrm/SqlDataComparison</projectUrl>
     <license type="expression">MIT</license>
+    <icon>logo\logo_128x128.png</icon>
     <contentFiles>
       <!-- new style projects -->
       <files include="**/SqlDataComparison/*.*" buildAction="None" />
@@ -43,5 +44,8 @@ Supports:
     <file src="build\InstallMaster.sql" target="content\SqlDataComparison" />
     <file src="build\CleanMaster.sql" target="content\SqlDataComparison" />
     <file src="build\README.txt" target="content\SqlDataComparison" />
+
+    <!-- logo -->
+    <file src="build\logo\logo_128x128.png" target="logo\logo_128x128.png" />
   </files>
 </package>

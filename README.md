@@ -1,4 +1,4 @@
-# SqlDataComparison
+# ![logo](https://raw.githubusercontent.com/MightyOrm/SqlDataComparison/master/src/static/logo_32x32.png) SqlDataComparison
 
 ## Installation:
 
