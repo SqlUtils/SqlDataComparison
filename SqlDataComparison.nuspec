@@ -6,7 +6,9 @@
     <authors>Mike Beaton</authors>
     <owners>Mike Beaton</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>Pure SQL data comparison and reconciliation utility for SQL Server
+    <description>*** This project has moved to https://www.nuget.org/packages/SqlUtils.SqlDataComparison ***
+
+Pure SQL data comparison and reconciliation utility for SQL Server
 
 Example usage:
 
@@ -34,15 +36,15 @@ Supports:
   </metadata>
   <files>
     <!-- new style projects -->
-    <file src="build\Install.sql" target="contentFiles\any\any\SqlDataComparison" />
+    <!--file src="build\Install.sql" target="contentFiles\any\any\SqlDataComparison" />
     <file src="build\InstallMaster.sql" target="contentFiles\any\any\SqlDataComparison" />
-    <file src="build\CleanMaster.sql" target="contentFiles\any\any\SqlDataComparison" />
+    <file src="build\CleanMaster.sql" target="contentFiles\any\any\SqlDataComparison" /-->
     <file src="build\README.txt" target="contentFiles\any\any\SqlDataComparison" />
 
     <!-- old style projects -->
-    <file src="build\Install.sql" target="content\SqlDataComparison" />
+    <!--file src="build\Install.sql" target="content\SqlDataComparison" />
     <file src="build\InstallMaster.sql" target="content\SqlDataComparison" />
-    <file src="build\CleanMaster.sql" target="content\SqlDataComparison" />
+    <file src="build\CleanMaster.sql" target="content\SqlDataComparison" /-->
     <file src="build\README.txt" target="content\SqlDataComparison" />
 
     <!-- logo -->
